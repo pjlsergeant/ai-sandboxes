@@ -1,0 +1,1104 @@
+# =============================================================================
+# AI Agent Sandboxes — structured dataset (evidence-carrying edition)
+#
+# Derived from: "AI Sandboxes and Adjacent Approaches from the Clawk Hacker
+# News Thread" (HN item 48892859) plus the official docs cited therein.
+#
+# v0.2.0 change: no bare ratings. Every non-identity field is a CLAIM that
+# carries its evidence. Fields with no evidentiary basis were deleted
+# (the v0.1 setup_burden / approval_friction / state_ergonomics scales).
+# =============================================================================
+
+meta:
+  title: AI Agent Sandboxes & Adjacent Approaches
+  version: "0.2.0"
+  generated: "2026-07-14"
+  primary_thread:
+    title: "Show HN: Clawk – Give coding agents a disposable Linux VM, not your laptop"
+    url: "https://news.ycombinator.com/item?id=48892859"
+
+  evidence_levels:
+    official: Stated in the product's own docs, README, or vendor engineering posts.
+    thread: Asserted by commenters in the HN thread; not vendor-confirmed.
+    editorial: Inference by the dataset authors; must show its basis.
+
+  conventions: >-
+    Any classification/risk/cost/convenience field is either a plain
+    scalar/list (SHORTHAND) or a CLAIM OBJECT. Shorthand means evidence level
+    "official", sourced from the entry's default_source. Claim objects have
+    keys {value, ev, src, basis, derived_from}; ev defaults to official and
+    src defaults to default_source when omitted. Every ev: editorial claim
+    MUST carry a basis and, where applicable, derived_from listing the
+    documented fields it was inferred from. A renderer's "official claims
+    only" toggle hides any claim whose effective ev is not official.
+    The literal string "unspecified" means primary sources were silent —
+    render it as a visible badge, never a blank cell.
+
+# -----------------------------------------------------------------------------
+# Taxonomy — closed vocabularies for filterable facets.
+# (v0.1's editorial cost/convenience ordinal scales are gone; only facets that
+# can be grounded in documentation remain.)
+# -----------------------------------------------------------------------------
+taxonomy:
+  product_role:
+    - {id: runtime, label: Sandbox runtime, description: Directly creates and owns the execution boundary.}
+    - {id: runtime_feature, label: Built-in sandbox feature, description: Sandboxing shipped inside a larger agent product.}
+    - {id: policy_wrapper, label: Policy wrapper, description: Intercepts or supervises another runtime's tool calls.}
+    - {id: remote_workspace, label: Remote workspace, description: Hosted dev environment usable as an agent sandbox.}
+    - {id: orchestrator, label: Orchestrator, description: Launches or supervises agents; not itself the trust boundary.}
+    - {id: template, label: Template / recipe, description: Reusable setup pattern built on other substrates.}
+    - {id: pattern, label: DIY pattern, description: An approach, not a product.}
+
+  execution_locus:
+    - {id: local, label: Local (user's machine)}
+    - {id: self_hosted_remote, label: Self-hosted remote}
+    - {id: vendor_cloud, label: Vendor-managed cloud}
+    - {id: hybrid, label: Hybrid local + cloud}
+
+  isolation_boundary:
+    # Ordered weakest -> strongest always-on boundary. `strength` lets the UI
+    # derive footprint/credibility framing from the documented boundary itself
+    # instead of storing per-entry editorial ratings.
+    - {id: user, label: Separate OS user, strength: 1}
+    - {id: os_sandbox, label: OS sandbox (Seatbelt / Bubblewrap / seccomp), strength: 2}
+    - {id: container, label: Container / namespace, strength: 3}
+    - {id: microvm, label: MicroVM (Firecracker / QEMU microVM / Apple container), strength: 4}
+    - {id: vm, label: Full VM (KVM / QEMU / hypervisor), strength: 5}
+    - {id: layered, label: Layered (multiple essential boundaries), strength: null}
+
+  state_model:
+    - {id: ephemeral, label: Ephemeral — resets by design}
+    - {id: resumable, label: Resumable — sessions/snapshots survive}
+    - {id: persistent, label: Persistent — disks/volumes survive indefinitely}
+    - {id: copy_apply, label: Copy/diff/apply — changes staged in a clone}
+    - {id: configurable, label: Configurable per mode}
+
+  network_policy:
+    - {id: open, label: Open outbound by default}
+    - {id: allowlist, label: Outbound allowlist}
+    - {id: proxy_mediated, label: Inspecting / mediating proxy}
+    - {id: none, label: No network}
+    - {id: operator_managed, label: Operator/vendor-managed policy}
+    - {id: configurable, label: Configurable (open/allowlist/none modes)}
+
+  credential_mediation:
+    - {id: ambient, label: Ambient — host env visible to agent}
+    - {id: mounted, label: Mounted — secret present inside runtime as file/env}
+    - {id: forwarded, label: Forwarded — e.g. SSH agent socket, key stays off-guest}
+    - {id: host_side_injection, label: Host-side injection — secret added only on egress}
+    - {id: os_keyring, label: OS keyring — agent auth in system keychain}
+    - {id: managed_integration, label: Managed integration — vendor service connector}
+    - {id: unspecified, label: Unspecified in primary sources}
+
+  threat_tier:
+    - id: t1_accidents
+      label: Accidents
+      description: Agent runs a destructive command in the wrong place.
+    - id: t2_exfiltration
+      label: Prompt-injection exfiltration
+      description: Agent tricked into shipping secrets or data out; needs egress control and/or credential mediation.
+    - id: t3_hostile_escape
+      label: Hostile code escape
+      description: Malicious code attempts to break the boundary; hypervisor-class isolation is the broadly credible answer.
+
+  design_intent:
+    - {id: constrain, label: Constrain the agent, description: Check, gate, or block agent actions.}
+    - {id: liberate, label: Liberate the agent, description: Build a wall so the agent can run unsupervised inside it.}
+    - {id: both, label: Both / configurable}
+
+  pricing_model:
+    # Factual, documentable. Replaces v0.1's editorial cost block.
+    - {id: free_oss, label: Free / open source}
+    - {id: free_tier_plus_usage, label: Free tier + pay-as-you-go}
+    - {id: paid_usage, label: Usage-based paid}
+    - {id: paid_subscription, label: Subscription (may add usage)}
+    - {id: contact_sales, label: Contact sales / pricing in flux}
+    - {id: product_feature, label: Bundled feature of a paid product}
+    - {id: unspecified, label: Unspecified in primary sources}
+
+# -----------------------------------------------------------------------------
+# Sources registry — claims reference these by id via `src`.
+# -----------------------------------------------------------------------------
+sources:
+  hn_thread:            {url: "https://news.ycombinator.com/item?id=48892859", title: "Show HN: Clawk (HN thread)"}
+  clawk_repo:           {url: "https://github.com/clawkwork/clawk", title: "Clawk README"}
+  agentjail_repo:       {url: "https://github.com/LuD1161/agentjail", title: "agentjail README"}
+  gondolin_docs:        {url: "https://earendil-works.github.io/gondolin/", title: "Gondolin documentation"}
+  gondolin_repo:        {url: "https://github.com/earendil-works/gondolin", title: "Gondolin repo (verified 2026-07-14)"}
+  gondolin_security:    {url: "https://github.com/earendil-works/gondolin/security", title: "Gondolin security design"}
+  flar_repo:            {url: "https://github.com/swelljoe/flar", title: "flar README"}
+  yoloai_repo:          {url: "https://github.com/kstenerud/yoloai", title: "yoloAI README"}
+  virtdev_repo:         {url: "https://github.com/matheusmoreira/virtdev", title: "virtdev README"}
+  exe_dev_site:         {url: "https://exe.dev/", title: "exe.dev site & docs"}
+  exe_dev_pricing:      {url: "https://exe.dev/pricing", title: "exe.dev pricing"}
+  exe_dev_blog:         {url: "https://blog.exe.dev/meet-exe.dev", title: "Meet exe.dev (blog)"}
+  sprites_docs:         {url: "https://docs.sprites.dev/", title: "Fly.io Sprites docs"}
+  agentcage_repo:       {url: "https://github.com/agentcage/agentcage", title: "agentcage README"}
+  coderunner_repo:      {url: "https://github.com/instavm/coderunner", title: "InstaVM CodeRunner README"}
+  instavm_blog:         {url: "https://instavm.io/blog/nixos-reproducible-dev-environments", title: "InstaVM NixOS sandboxes (blog)"}
+  yolobox_repo:         {url: "https://github.com/finbarr/yolobox", title: "yolobox README & security model"}
+  bitrise_rde:          {url: "https://bitrise.io/platform/remote-dev-environments", title: "Bitrise RDE product page & docs"}
+  codespaces_docs:      {url: "https://github.com/features/codespaces", title: "GitHub Codespaces docs"}
+  anthropic_sandboxing: {url: "https://www.anthropic.com/engineering/claude-code-sandboxing", title: "Anthropic: Claude Code sandboxing"}
+  anthropic_containment: {url: "https://www.anthropic.com/engineering/how-we-contain-claude", title: "Anthropic: How we contain Claude"}
+  codex_security:       {url: "https://learn.chatgpt.com/docs/agent-approvals-security", title: "OpenAI: Agent approvals & security"}
+  codex_sandboxing:     {url: "https://learn.chatgpt.com/docs/sandboxing?surface=app", title: "OpenAI: Codex sandboxing docs"}
+  byre_repo:            {url: "https://github.com/pjlsergeant/byre", title: "byre README"}
+  paseo_docs:           {url: "https://paseo.sh/docs/providers", title: "Paseo providers docs"}
+  skynot_repo:          {url: "https://github.com/tarsgate/skynot", title: "skynot README"}
+  takeaicontrol_repo:   {url: "https://github.com/daitangio/take-ai-control", title: "take-ai-control README"}
+  aide_repo:            {url: "https://github.com/jskswamy/aide/", title: "Aide README"}
+  scratch_repo:         {url: "https://github.com/housecat-inc/scratch", title: "scratch README"}
+  katsuobushi_repo:     {url: "https://github.com/cdata/katsuobushi/tree/main/lib/sandbox", title: "katsuobushi sandbox"}
+  nix_mitm_repo:        {url: "https://github.com/riedel/nix-opencode-with-mitm", title: "nix-opencode-with-mitm README"}
+
+# -----------------------------------------------------------------------------
+# UI hints. The decision funnel keys off documented fields only.
+# -----------------------------------------------------------------------------
+ui:
+  primary_filters: [classification.isolation_boundary, classification.execution_locus,
+                    classification.network_policy, classification.credential_mediation,
+                    pricing.model, agents_supported, platforms]
+  compare_view_row_order:
+    - classification.isolation_boundary
+    - classification.network_policy
+    - classification.credential_mediation
+    - classification.state_model
+    - risk.stated_scope
+    - risk.assessed_tiers
+    - pricing.model
+    - maturity
+    - limitations
+  evidence_rendering:
+    official: plain text, source-linked
+    thread: chip labeled "per HN commenters", source-linked
+    editorial: chip labeled "our assessment", basis shown on hover/expand
+    toggle_official_only: hide any claim whose effective ev != official
+  decision_funnel:
+    - question: What are you afraid of?
+      maps_to: [risk.stated_scope, risk.assessed_tiers, classification.isolation_boundary]
+      effect: Sets the minimum acceptable boundary strength (taxonomy.isolation_boundary.strength).
+    - question: What will it cost you, in money and machine?
+      maps_to: [pricing, classification.isolation_boundary, footprint_notes]
+      effect: Boundary strength implies local footprint; pricing.model covers the monetary side.
+    - question: Where must code run?
+      maps_to: classification.execution_locus
+      effect: Local ownership vs off-laptop persistence and concurrency.
+
+# -----------------------------------------------------------------------------
+# Principal sandboxes. Shorthand scalar = {ev: official, src: default_source}.
+# -----------------------------------------------------------------------------
+sandboxes:
+
+  - id: clawk
+    name: Clawk
+    default_source: clawk_repo
+    tagline: Disposable, network-restricted Linux VMs for coding agents.
+    urls: {repo: "https://github.com/clawkwork/clawk"}
+    license: Apache-2.0
+    maturity: {value: pre_1_0_active, basis: Repo is pre-1.0 and under active development.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms:
+      value: [macos, linux]
+      basis: macOS first-class; Linux provider explicitly experimental.
+    agents_supported: [claude_code, codex, generic_shell]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: vm, basis: Hypervisor-backed Linux guest per repo or multi-repo worktree.}
+      state_model: {value: resumable, basis: VM disk disposable except snapshots; Linux provider adds disk persistence; repo and conversations live on host.}
+      network_policy: {value: allowlist, basis: Outbound allowlist documented in README.}
+      credential_mediation: {value: forwarded, basis: SSH-agent forwarding keeps private keys off the guest.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        basis: README claims center on the VM boundary plus network allowlist, while stating that anything mounted or allowlisted is exposed to the agent.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: Hypervisor boundary (official) + egress allowlist (official) + off-guest keys (official) plausibly cover all three tiers; no independent audit exists.
+      design_intent:
+        value: liberate
+        basis: Product framing is giving agents a disposable VM instead of your laptop.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: One VM per repo or multi-repo worktree.
+      basis: Documented deployment unit; RAM/disk implications follow from the VM boundary, not from a stored rating.
+    convenience_notes:
+      - {value: Worktree workflow and ticket mode built in.}
+    integrations: [oci_image_rootfs, git_worktrees, ticket_mode, cli]
+    audience: [individual_developer, small_team]
+    limitations:
+      - {value: macOS-first; Linux path experimental.}
+      - {value: Anything mounted or allowlisted is exposed to the agent.}
+    compliance: {value: none_stated}
+
+  - id: agentjail
+    name: agentjail
+    default_source: agentjail_repo
+    tagline: Policy guardrails that check every agent tool call before it runs.
+    urls: {repo: "https://github.com/LuD1161/agentjail"}
+    license: Apache-2.0
+    maturity: {value: early_active, basis: v0.5.0 released July 2026.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [macos, linux]
+    agents_supported: [claude_code, codex, cursor]
+    classification:
+      role: policy_wrapper
+      execution_locus: local
+      isolation_boundary: {value: os_sandbox, basis: Hook-based policy checks with optional kernel sandbox (agentjail-shield).}
+      state_model: {value: resumable, basis: Per-project overlays and sessions; policies and daemon on host.}
+      network_policy: {value: proxy_mediated, basis: Session-aware net proxy; opt-in / interim in some flows.}
+      credential_mediation: unspecified
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: README frames the goal as preventing unsafe tool calls before they run, with a fail-closed policy posture and defense in depth; it does not claim a VM boundary.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy]
+        basis: Policy + OS sandbox + proxy address accidents and exfiltration; hostile escape is out of scope without a hypervisor boundary.
+      design_intent:
+        value: constrain
+        basis: Every tool call is checked locally before it runs, per the repo description.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Runs as hooks and a host daemon; no VM or container required.
+      basis: Documented architecture.
+    convenience_notes:
+      - {value: Stated goal includes reducing approval fatigue.}
+    integrations: [hooks, opa_policies, mcp_scan, daemon, net_proxy_opt_in]
+    audience: [individual_developer]
+    limitations:
+      - {value: Not a full VM.}
+      - {value: Proxy path interim / opt-in in some flows.}
+    compliance: {value: none_stated}
+
+  - id: gondolin
+    name: Gondolin
+    default_source: gondolin_docs
+    tagline: Local microVMs with a programmable (TypeScript) network and filesystem policy layer.
+    urls: {repo: "https://github.com/earendil-works/gondolin", docs: "https://earendil-works.github.io/gondolin/", security: "https://github.com/earendil-works/gondolin/security"}
+    license: {value: Apache-2.0, src: gondolin_repo}
+    maturity: {value: experimental_active, src: gondolin_repo, basis: Self-described as experimental; v0.8.1 with 16 releases as of May 2026.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [macos, linux]
+    agents_supported: [generic_command_execution, pi_extension]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: microvm, basis: QEMU microVM by default; experimental libkrun backend.}
+      state_model: {value: configurable, basis: Copy-on-write root disk; persistence governed by host-side VFS policy; custom images optional.}
+      network_policy: {value: proxy_mediated, basis: Host-side JS network stack mediates traffic; allowlisting expressible in the policy layer.}
+      credential_mediation: {value: host_side_injection, src: gondolin_repo, basis: Guest sees only a placeholder token; host injects the real secret solely for allowed destinations.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        src: gondolin_security
+        basis: Security design doc states an explicit threat model, and explicitly trusts the host Node process and QEMU boundary, with no full DoS isolation.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: MicroVM boundary + mediated egress + host-side secret injection cover all three tiers within the stated trust assumptions.
+      design_intent:
+        value: both
+        ev: editorial
+        basis: Programmable policy layer supports both gating (constrain) and walled autonomy (liberate); docs do not pick a side.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: MicroVM per sandbox with copy-on-write root disk.
+      basis: Documented architecture.
+    convenience_notes:
+      - {value: Early-stage ergonomics acknowledged in its own docs.}
+    integrations: [typescript_policy_layer, vfs_providers, custom_images, pi_extension]
+    audience: [platform_builder, individual_developer]
+    limitations:
+      - {value: Trusts host Node process and QEMU boundary., src: gondolin_security}
+      - {value: No full DoS isolation., src: gondolin_security}
+    compliance: {value: none_stated}
+
+  - id: flar
+    name: flar
+    default_source: flar_repo
+    tagline: Fast, light Bubblewrap-based agent restriction with minimal startup overhead.
+    urls: {repo: "https://github.com/swelljoe/flar"}
+    license: Apache-2.0
+    maturity: {value: very_early, basis: No published releases at fetch time, per its own README.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [linux]
+    agents_supported: [claude_code, antigravity, codex, copilot, reasonix]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: os_sandbox, basis: Bubblewrap in an unprivileged user namespace; read-only system paths; project bind mount.}
+      state_model: {value: resumable, basis: Temporary copied config plus bound per-project transcript stores; host config untouched.}
+      network_policy: {value: configurable, basis: Isolated by default with optional host/shared network.}
+      credential_mediation: {value: mounted, basis: Config is copied in; the chosen agent's credential token remains accessible to that agent.}
+    risk:
+      stated_scope:
+        value: [t1_accidents]
+        basis: README markets tighter-than-in-agent sandboxing but is candid that the project is far less tested and that the agent's own token stays reachable.
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        derived_from: [classification.credential_mediation, classification.isolation_boundary]
+        basis: In-runtime token access undermines the exfiltration tier; OS-sandbox boundary is below hypervisor grade.
+      design_intent:
+        value: constrain
+        basis: A restrictor by name and framing.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Namespace-based; minimal startup overhead is the stated point of the project.
+      basis: README framing (Fast Light Agent Restrictor).
+    convenience_notes:
+      - {value: Session seeding / shadow homes; host-side proxy.}
+    integrations: [host_side_proxy, config_copying, session_seeding_shadow_homes]
+    audience: [individual_developer]
+    limitations:
+      - {value: Linux-only.}
+      - {value: Far less tested, per its own README; no releases at fetch time.}
+      - {value: Agent's own credential token reachable by that agent.}
+    compliance: {value: none_stated}
+
+  - id: yoloai
+    name: yoloAI
+    default_source: yoloai_repo
+    tagline: One sandbox wrapper across many backends, with a copy/diff/apply review workflow.
+    urls: {repo: "https://github.com/kstenerud/yoloai"}
+    license: MIT
+    maturity: {value: public_beta}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [linux, macos, windows_wsl2]
+    agents_supported: [claude, codex, gemini_cli, aider, opencode, generic_shell]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary:
+        value: layered
+        basis: Backends span Docker, Podman, containerd/Kata, Apple container, Tart, Seatbelt; isolation modes from namespaces through gVisor to Kata/Firecracker.
+      state_model: {value: copy_apply, basis: Sandbox changes are reviewed with diff and applied; state lives in ~/.yoloai/.}
+      network_policy: {value: configurable, basis: Documented open / allowlist / none modes.}
+      credential_mediation:
+        value: host_side_injection
+        basis: Credential brokering documented, but provider-specific rather than universal; otherwise mounted.
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: README claims no ambient data, credential brokering, and network none/allowlist modes.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy]
+        basis: Tier credibility depends on the chosen backend — namespaces reach t1; Kata/Firecracker backends are t3-grade.
+      design_intent:
+        value: both
+        ev: editorial
+        basis: Copy/diff/apply gates changes (constrain) while backends enable walled autonomy (liberate).
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Footprint tracks the chosen backend, from shared-kernel namespaces to Firecracker microVMs.
+      basis: Documented backend list.
+    convenience_notes:
+      - {value: Diff/apply adds a review step to every change in exchange for safety., ev: editorial, derived_from: [classification.state_model], basis: Direct implication of the documented copy/diff/apply workflow.}
+    integrations: [go_api, mcp_bidirectional, vscode_tunnel, profiles, extensions]
+    audience: [individual_developer]
+    limitations:
+      - {value: Complexity from many backends., ev: thread, src: hn_thread}
+      - {value: Credential brokering not universal across providers.}
+    compliance: {value: none_stated}
+
+  - id: virtdev
+    name: virtdev
+    default_source: virtdev_repo
+    tagline: Per-project Arch Linux KVM/QEMU VMs with nftables egress zones.
+    urls: {repo: "https://github.com/matheusmoreira/virtdev"}
+    license: AGPL-3.0
+    maturity: {value: active_personal_project}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: {value: [arch_linux_host], basis: Requires an Arch Linux host.}
+    agents_supported: [agent_agnostic, claude_code_cited]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: vm, basis: KVM/QEMU virtual machines, locked by default.}
+      state_model: {value: persistent, basis: Shared sealed base image with per-project qcow2 deltas.}
+      network_policy: {value: allowlist, basis: nftables egress filter with configurable project zones, via passt.}
+      credential_mediation: unspecified
+    risk:
+      stated_scope:
+        value: [t1_accidents, t3_hostile_escape]
+        basis: Security focus documented as hypervisor boundary plus egress zones; no built-in policy engine or secret injection yet.
+      assessed_tiers:
+        value: [t1_accidents, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.credential_mediation]
+        basis: Boundary and zoning are strong, but with credential handling unspecified, exfiltration protection depends entirely on what the user places in the VM.
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: Walled per-project VMs for autonomous work; no per-call gating layer.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Full VM per project, deduplicated via a shared sealed base plus qcow2 deltas.
+      basis: Documented storage architecture.
+    convenience_notes:
+      - {value: Root needed at least once to apply the firewall.}
+    integrations: [cli, custom_zones, user_mode_systemd]
+    audience: [linux_power_user]
+    limitations:
+      - {value: Arch-host requirement.}
+      - {value: Credential injection not yet built in.}
+    compliance: {value: none_stated}
+
+  - id: exe_dev
+    name: exe.dev
+    default_source: exe_dev_site
+    tagline: Hosted persistent Linux VMs that keep working when your laptop is closed.
+    urls: {official: "https://exe.dev/", pricing: "https://exe.dev/pricing", blog: "https://blog.exe.dev/meet-exe.dev"}
+    license: proprietary_service
+    maturity: {value: public_service, basis: Active docs and pricing; developer-preview origins.}
+    thread_status: {value: mentioned_in_report_sources, src: hn_thread}
+    platforms: [browser, ssh, vscode]
+    agents_supported: {value: [claude, codex, pi, shelley_web_agent], basis: Claude, Codex, and Pi preinstalled; Shelley web agent included.}
+    classification:
+      role: runtime
+      execution_locus: vendor_cloud
+      isolation_boundary: {value: vm, basis: KVM-isolated real VMs with HTTPS proxy and SSH access.}
+      state_model: {value: persistent, basis: Persistent disks; disks backed up; stopped VMs keep their disk.}
+      network_policy: {value: operator_managed, basis: VMs private by default; access via proxy/SSH; integrations govern reachability.}
+      credential_mediation: {value: managed_integration, basis: Secrets injected at the network level / via managed integrations rather than parked in-guest.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        basis: Claims include private-by-default access, key-only SSH, maintained images, and no exposed ports.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.credential_mediation]
+        basis: KVM boundary plus network-level secret injection is credible across tiers; the trade is that the vendor sits inside your trust boundary.
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: Persistent off-laptop VMs for agents to work in unattended.
+    pricing:
+      model: paid_subscription
+      src: exe_dev_pricing
+      notes: {value: Subscription plus usage-based options.}
+    footprint_notes:
+      value: Runs on vendor hardware; local footprint is zero, cost is monetary.
+      basis: Managed-service model.
+    convenience_notes:
+      - {value: Maintained images; VS Code, regions, GitHub and proxy integrations.}
+    integrations: [ssh_api, https_api, github, http_proxy, llm_integrations, reflection, regions, vscode, agent_skill]
+    audience: [individual_developer, small_team]
+    limitations:
+      - {value: Not self-hostable.}
+      - {value: Region tied per account.}
+    compliance: {value: none_stated_in_fetched_docs}
+
+  - id: fly_sprites
+    name: Fly.io Sprites
+    default_source: sprites_docs
+    tagline: Persistent, hardware-isolated Firecracker microVM "sandbox computers."
+    urls: {official: "https://sprites.dev/", docs: "https://docs.sprites.dev/"}
+    license: proprietary_service
+    maturity: {value: new_official_product, basis: Docs described as work-in-progress early on.}
+    thread_status: {value: mentioned_only, src: hn_thread}
+    platforms: [api, cli, sdk]
+    agents_supported: [agent_agnostic, claude_code_examples, moltbot_examples]
+    classification:
+      role: runtime
+      execution_locus: vendor_cloud
+      isolation_boundary: {value: microvm, basis: Hardware-isolated Firecracker microVMs with private filesystems and networking.}
+      state_model: {value: persistent, basis: Filesystem and memory persist between runs; sleep when idle; checkpoints and restore.}
+      network_policy: {value: allowlist, basis: DNS-based outbound network policy.}
+      credential_mediation: unspecified
+    risk:
+      stated_scope:
+        value: [t1_accidents, t3_hostile_escape]
+        basis: Strong isolation claims for arbitrary and user-submitted code; DNS-based egress policy.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy]
+        basis: Firecracker boundary plus DNS egress policy plausibly covers exfiltration too, though credential handling is unspecified.
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: Built as a platform primitive for hosting agent runtimes and untrusted code.
+    pricing:
+      model: paid_usage
+      notes: {value: Usage-based; idle sleep limits standing cost.}
+    footprint_notes:
+      value: Vendor hardware; sleep-when-idle and checkpoint/restore documented.
+      basis: Sprites docs.
+    convenience_notes:
+      - {value: Checkpoint and restore; JS and Go SDKs.}
+    integrations: [cli, rest_api, js_sdk, go_sdk, network_policies]
+    audience: [platform_builder, individual_developer]
+    limitations:
+      - {value: Managed service only.}
+      - {value: Operational limits and region selection still evolving.}
+    compliance: {value: none_stated_in_fetched_docs}
+
+  - id: agentcage
+    name: agentcage
+    default_source: agentcage_repo
+    tagline: Defense-in-depth sandbox with an inspecting, fail-closed proxy against exfiltration.
+    urls: {repo: "https://github.com/agentcage/agentcage"}
+    license: MIT
+    maturity: {value: experimental, basis: README warns the project is experimental and not audited; many releases.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [macos, linux]
+    agents_supported: [claude_code, codex, pi, openclaw_platform]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary:
+        value: layered
+        basis: Rootless Podman container, Lima VM, or Apple-container microVM backend, plus internal-only network, inspecting proxy, and DNS sidecar.
+      state_model: {value: ephemeral, basis: Ephemeral sessions tear down but preserve audit logs; persistent cages optional and keep auth.}
+      network_policy: {value: proxy_mediated, basis: Inspecting proxy with fail-closed traffic default.}
+      credential_mediation: {value: host_side_injection, basis: Secret scanning plus placeholder injection with outbound substitution.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: Explicit exfiltration-blocking design — placeholders, fail-closed traffic, audit logs — alongside an explicit not-audited warning.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.credential_mediation]
+        basis: Exfiltration is the design center; escape-tier credibility depends on which backend (container vs VM) is chosen.
+      design_intent:
+        value: constrain
+        basis: Every outbound byte passes an inspecting, fail-closed proxy.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Adds proxy and DNS sidecar processes on top of the chosen backend.
+      basis: Documented architecture.
+    convenience_notes:
+      - {value: Operational complexity is the acknowledged trade for depth.}
+    integrations: [cli, scaffolds, custom_inspectors, cage_audit_logs, config_driven_cages]
+    audience: [security_minded_developer, operator]
+    limitations:
+      - {value: Not audited; experimental, per its own README.}
+    compliance: {value: none_stated}
+
+  - id: instavm_coderunner
+    name: InstaVM CodeRunner
+    default_source: coderunner_repo
+    tagline: Local Apple-container sandbox for AI agents on Apple Silicon, with a cloud path.
+    urls: {repo: "https://github.com/instavm/coderunner", related_blog: "https://instavm.io/blog/nixos-reproducible-dev-environments"}
+    license: Apache-2.0
+    maturity: {value: active_company_backed}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [macos_apple_silicon]
+    agents_supported: {value: [claude_code, ai_agents_generic], basis: Claude Code named explicitly; broader agent support stated without an exact engine list.}
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: microvm, basis: Apple container runtime / VM-level isolation.}
+      state_model: unspecified
+      network_policy: unspecified
+      credential_mediation: unspecified
+    risk:
+      stated_scope:
+        value: [t1_accidents]
+        basis: Claims 100% local execution and zero cloud uploads for local testing; no documented network or credential posture.
+      assessed_tiers:
+        value: [t1_accidents, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary]
+        basis: VM-level isolation supports containment tiers, but exfiltration credibility cannot be assessed with network and credential posture unspecified.
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: A box to run agents in, not a per-call gate.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Apple-container VM per sandbox on Apple Silicon.
+      basis: Documented runtime.
+    convenience_notes: []
+    integrations: [coderunner_ui, instavm_ecosystem, cloud_compatible_workflow]
+    audience: [mac_developer]
+    limitations:
+      - {value: Apple-centric.}
+      - {value: Fetched sources light on persistence and policy detail., ev: editorial, basis: Comparative observation across this dataset's entries.}
+    compliance: {value: none_stated}
+
+  - id: yolobox
+    name: yolobox
+    default_source: yolobox_repo
+    tagline: Let the agent work freely inside a container; keep your home directory out of it.
+    urls: {repo: "https://github.com/finbarr/yolobox"}
+    license: MIT
+    maturity: {value: active_0x}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [macos, linux]
+    agents_supported: [agent_agnostic, claude_examples]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: container, basis: Container-based; agent gets sudo inside the container.}
+      state_model: {value: persistent, basis: Named volumes preserve setup across sessions.}
+      network_policy: {value: open, basis: Open network by default.}
+      credential_mediation: {value: mounted, basis: Passed-in secrets are exposed to the agent, per its own security notes.}
+    risk:
+      stated_scope:
+        value: [t1_accidents]
+        basis: README is explicit that it protects against accidents more than hostile-code escape, and recommends rootless Podman or a VM for tighter threat models.
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        derived_from: [risk.stated_scope]
+        basis: Matches the vendor's own honest scoping; no reason to assess beyond it.
+      design_intent:
+        value: liberate
+        basis: The product's framing is letting the agent run freely inside the box.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Single shared-kernel container with named volumes.
+      basis: Documented architecture.
+    convenience_notes:
+      - {value: One-command ergonomics with hardening options documented.}
+    integrations: [cli_flags, hardening_options, security_model_docs]
+    audience: [individual_developer]
+    limitations:
+      - {value: Not positioned as a strong escape barrier.}
+      - {value: Project dir and passed-in secrets remain exposed.}
+      - {value: Open network by default.}
+    compliance: {value: none_stated}
+
+  - id: bitrise_rde
+    name: Bitrise Remote Dev Environments
+    default_source: bitrise_rde
+    tagline: Hosted isolated VMs (macOS and Linux) for remote dev and agent sessions on CI infrastructure.
+    urls: {official: "https://bitrise.io/platform/remote-dev-environments"}
+    license: proprietary_service
+    maturity: {value: beta, basis: Open beta; June 2026 post describes a free self-serve beta.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: {value: [macos_cloud, linux_cloud], basis: macOS and Linux cloud environments on Bitrise CI stacks.}
+    agents_supported: {value: [claude_code, codex, mcp_orchestrated_agents], basis: Officially supports Claude Code and Codex with user-supplied keys; can orchestrate agents through MCP.}
+    classification:
+      role: remote_workspace
+      execution_locus: vendor_cloud
+      isolation_boundary: {value: vm, basis: Cloud VMs on the same stacks/caches as Bitrise CI; one machine per task.}
+      state_model: {value: persistent, basis: Persistent on-demand VMs; sessions can be archived and restored.}
+      network_policy: operator_managed
+      credential_mediation: {value: managed_integration, basis: Push-scoped keys that never land on the machine; separation from orchestrator credentials.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        basis: Security framing emphasizes isolation, push-scoped keys, machine deletion after work, and credential separation.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.credential_mediation]
+        basis: VM isolation plus scoped off-machine keys is credible across tiers; vendor sits inside the trust boundary.
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: Off-laptop machines for agents to work in, one per task.
+    pricing:
+      model: contact_sales
+      notes: {value: Product page says talk-to-us; beta post says free self-serve beta — pricing in flux.}
+    footprint_notes:
+      value: Vendor hardware, including cloud macOS — rare in this space.
+      basis: Product page.
+    convenience_notes:
+      - {value: SSH, VNC, web terminal, VS Code plugin, MCP server, API.}
+    integrations: [cli, web_ui, mcp_server, api, vscode_plugin, ssh, vnc, web_terminal]
+    audience: [team, mobile_team, enterprise]
+    limitations:
+      - {value: Pricing/packaging moving during beta.}
+      - {value: No self-hosted RDE equivalent surfaced., ev: editorial, basis: Not found in fetched sources; Bitrise supports on-prem runners for builds generally.}
+    compliance: {value: none_stated_for_rde_specifically}
+
+  - id: github_codespaces
+    name: GitHub Codespaces
+    default_source: codespaces_docs
+    tagline: Hosted VM + devcontainer dev environments, commonly repurposed as agent sandboxes.
+    urls: {official: "https://github.com/features/codespaces"}
+    license: proprietary_service
+    maturity: {value: mature_ga}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [browser, vscode]
+    agents_supported: [agent_agnostic]
+    classification:
+      role: remote_workspace
+      execution_locus: vendor_cloud
+      isolation_boundary: {value: layered, basis: Development container hosted on a VM; isolated virtual network per codespace.}
+      state_model: {value: persistent, basis: Saved changes persist across stops; 30-minute idle timeout default; inactive stopped codespaces delete after 30 days by default, configurable.}
+      network_policy: {value: open, basis: Outbound internet allowed by default.}
+      credential_mediation: {value: unspecified, basis: Standard GitHub secrets model; no agent-native mediation story documented.}
+    risk:
+      stated_scope:
+        value: [t1_accidents]
+        basis: Official docs claim isolated virtual networking and enterprise auditability; positioning is dev environments, not agent safety.
+      assessed_tiers:
+        value: [t1_accidents, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy]
+        basis: The VM contains damage to the codespace, but open outbound by default and no agent-native secret mediation leave the exfiltration tier unaddressed.
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: A general dev environment repurposed as a wall, with no agent gating layer.
+    pricing:
+      model: free_tier_plus_usage
+      notes: {value: Free allowance for individuals, then pay-as-you-go.}
+    footprint_notes:
+      value: Vendor hardware; prebuilds shorten startup at extra cost.
+      basis: Codespaces docs.
+    convenience_notes:
+      - {value: Devcontainer features, prebuilds, browser and VS Code access.}
+    integrations: [rest_api, vscode, browser, devcontainer_features, prebuilds, octokit]
+    audience: [individual_developer, team, enterprise]
+    limitations:
+      - {value: Not self-hostable.}
+      - {value: Outbound internet allowed by default.}
+      - {value: Isolation is dev-environment-grade, not agent-specific safety control., ev: editorial, derived_from: [classification.network_policy, classification.credential_mediation], basis: No egress policy or credential mediation aimed at agent threat models.}
+    compliance: {value: inherits_github_enterprise_posture}
+
+  - id: claude_code_sandbox
+    name: Claude Code sandbox
+    default_source: anthropic_sandboxing
+    tagline: OS-native sandboxing built into Claude Code for safer autonomy with fewer prompts.
+    urls: {engineering: "https://www.anthropic.com/engineering/claude-code-sandboxing", containment: "https://www.anthropic.com/engineering/how-we-contain-claude"}
+    license: product_feature
+    maturity: {value: beta_research_preview, basis: Sandboxed bash described as beta / research preview.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: {value: [macos, linux], basis: Seatbelt on macOS, Bubblewrap on Linux.}
+    agents_supported: [claude_code]
+    classification:
+      role: runtime_feature
+      execution_locus: local
+      isolation_boundary: {value: os_sandbox, basis: OS-native filesystem and network sandboxing — Seatbelt on macOS, Bubblewrap on Linux.}
+      state_model: {value: persistent, basis: Local repo/workspace state persists; sandbox applies to bash commands and FS/network boundaries.}
+      network_policy: {value: configurable, basis: Sandbox-configured network boundaries.}
+      credential_mediation: {value: os_keyring, basis: Auth stored in OS keyring; sandboxing paired with network controls.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: Anthropic ties sandboxing to working-directory boundaries, network controls, and reduced permission prompts.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: OS sandbox plus network controls and keyring credentials address accidents and exfiltration; not a hypervisor boundary.
+      design_intent:
+        value: both
+        basis: Stated goal is safer autonomy with fewer permission prompts — gating and liberation together.
+    pricing: {model: product_feature, notes: {value: Bundled with Claude Code; product pricing not in fetched sources.}}
+    footprint_notes:
+      value: OS-sandbox primitives; no VM or container overhead.
+      basis: Documented mechanism.
+    convenience_notes:
+      - {value: Reduces permission prompts, per Anthropic's stated design goal.}
+      - {value: Zero-install for existing Claude Code users., ev: editorial, basis: It is a feature of the product the user already runs.}
+    integrations: [ide_integrations, permissions_system, devcontainer_guidance, agent_sdk, managed_agents_docs]
+    audience: [claude_code_users]
+    limitations:
+      - {value: Relies on the user approval model outside the sandbox.}
+      - {value: Boundaries must be configured correctly.}
+    compliance: {value: trust_center_certifications_referenced}
+
+  - id: codex_sandbox
+    name: Codex sandbox
+    default_source: codex_security
+    tagline: OS-native local sandboxing plus worktree and isolated cloud execution modes.
+    urls: {docs: "https://learn.chatgpt.com/docs/sandboxing?surface=app", security: "https://learn.chatgpt.com/docs/agent-approvals-security"}
+    license: product_feature
+    maturity: {value: mature_product_docs}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: {value: [macos, linux, wsl, windows_powershell, cloud], basis: Seatbelt on macOS, Bubblewrap on Linux/WSL, native Windows sandbox on PowerShell; cloud tasks in isolated cloud environments.}
+    agents_supported: [codex]
+    classification:
+      role: runtime_feature
+      execution_locus: {value: hybrid, basis: Local, worktree, and cloud execution modes documented.}
+      isolation_boundary: {value: os_sandbox, basis: OS-native sandboxing locally; isolated cloud environments for cloud tasks.}
+      state_model: {value: configurable, basis: Local and worktree tasks run on your machine; cloud tasks run remotely; boundaries govern write scope.}
+      network_policy: {value: configurable, basis: Default network off locally; managed network policy in enterprise guidance.}
+      credential_mediation: {value: os_keyring, basis: Keyring-backed credentials plus managed configs.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: OpenAI documents sandboxing, approvals, network policies, keyring credentials, and agent-native telemetry / audit trails.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.network_policy, classification.credential_mediation]
+        basis: Default-off local network is a notably conservative exfiltration posture; the local boundary remains OS-sandbox-grade rather than hypervisor-grade.
+      design_intent:
+        value: both
+        basis: Approvals model (constrain) combined with sandboxed autonomous modes (liberate).
+    pricing: {model: product_feature, notes: {value: Varies by surface; not in fetched sources.}}
+    footprint_notes:
+      value: OS-sandbox primitives locally; cloud tasks offloaded to vendor hardware.
+      basis: Documented modes.
+    convenience_notes:
+      - {value: Native Windows sandbox support — rare in this space., ev: editorial, derived_from: [platforms], basis: Comparative observation across this dataset's entries.}
+    integrations: [chatgpt_desktop, cli, ide_extension, sdk, app_server, mcp_server, github_action, third_party]
+    audience: [individual_developer, team, enterprise]
+    limitations:
+      - {value: Pricing and some operational details vary by surface.}
+      - {value: User must still choose a permissions posture.}
+    compliance: {value: enterprise_guidance_documented}
+
+  - id: byre
+    name: byre
+    default_source: byre_repo
+    tagline: Transparent, low-magic local containers with explicit access grants and readable generated Dockerfiles.
+    urls: {repo: "https://github.com/pjlsergeant/byre"}
+    license: MIT
+    maturity: {value: young, basis: v0.2.0 released July 2026.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [linux, macos]
+    agents_supported: [claude_code, codex, gemini, grok]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: container, basis: Local container via Docker or Podman; generated Dockerfiles are readable and editable.}
+      state_model: {value: persistent, basis: Per-project state and cache volumes; login persists per project across rebuilds.}
+      network_policy: {value: open, basis: Network open by default.}
+      credential_mediation: {value: mounted, basis: Project mounted read-write; credentials passed through.}
+    risk:
+      stated_scope:
+        value: [t1_accidents]
+        basis: README explicitly says it is not a security product, that containers are not microVMs, and that it is not intended for state-sponsored-malware-grade threat models.
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        derived_from: [risk.stated_scope]
+        basis: Matches the vendor's own honest scoping.
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: An ergonomic box for agents, with transparency rather than gating as the differentiator.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Shared-kernel container per project; generated Dockerfiles keep lock-in low.
+      basis: Documented architecture.
+    convenience_notes:
+      - {value: TUI, TOML layering, reusable templates and skills.}
+    integrations: [tui, toml_layering, generated_dockerfiles, templates, skills]
+    audience: [individual_developer]
+    limitations:
+      - {value: Network open by default.}
+      - {value: Project mounted read-write.}
+      - {value: Explicitly not an escape barrier, per its own README.}
+    compliance: {value: none_stated}
+
+# -----------------------------------------------------------------------------
+# Adjacent tools & approaches. Same claim conventions; lighter schema.
+# -----------------------------------------------------------------------------
+adjacent:
+
+  - id: paseo
+    name: Paseo
+    role: orchestrator
+    default_source: paseo_docs
+    urls: {official: "https://paseo.sh/", docs: "https://paseo.sh/docs/providers"}
+    thread_status: {value: directly_linked, src: hn_thread}
+    summary:
+      value: Local-first orchestrator for multiple coding-agent CLIs; self-hostable.
+      basis: Its own docs say it doesn't ship a coding agent — it launches and supervises existing CLIs. Not itself the trust boundary.
+    pairs_with: [clawk, yoloai, virtdev, exe_dev]
+
+  - id: skynot
+    name: skynot
+    role: pattern
+    default_source: skynot_repo
+    urls: {repo: "https://github.com/tarsgate/skynot"}
+    thread_status: {value: directly_linked, src: hn_thread}
+    summary:
+      value: Dedicated-user install pattern — creates an aidev user with shared ACLs, installs Pi in that user's home, launches the agent only in a restricted work tree.
+      basis: Documented mechanism in the repo.
+    risk:
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        basis: Kernel and installed programs remain shared; thread commenters disputed user separation on exactly these grounds.
+
+  - id: take_ai_control
+    name: take-ai-control
+    role: template
+    default_source: takeaicontrol_repo
+    urls: {repo: "https://github.com/daitangio/take-ai-control"}
+    thread_status: {value: directly_linked, src: hn_thread}
+    summary:
+      value: Template repo packaging Pi inside a devcontainer with a non-root user and explicit environment files.
+      basis: Repo documentation.
+
+  - id: aide
+    name: Aide
+    role: orchestrator
+    default_source: aide_repo
+    urls: {repo: "https://github.com/jskswamy/aide/"}
+    thread_status: {value: directly_linked, src: hn_thread}
+    summary:
+      value: YAML-driven configuration and SOPS-backed credential management — addresses the secret-path dimension rather than the compute boundary.
+      basis: Repo documentation; positioned in the thread as a complement to sandboxing.
+
+  - id: scratch
+    name: scratch
+    role: orchestrator
+    default_source: scratch_repo
+    urls: {repo: "https://github.com/housecat-inc/scratch"}
+    thread_status: {value: directly_linked, src: hn_thread}
+    summary:
+      value: Agent toolkit one commenter places inside sandboxes; adjacent tooling, not a boundary.
+      ev: thread
+      src: hn_thread
+
+  - id: katsuobushi_sandbox
+    name: katsuobushi sandbox
+    role: template
+    default_source: katsuobushi_repo
+    urls: {repo: "https://github.com/cdata/katsuobushi/tree/main/lib/sandbox"}
+    thread_status: {value: directly_linked, src: hn_thread}
+    summary:
+      value: Nix-flake microVM recipe for Claude Code with declarative allowlists.
+      basis: Repo documentation.
+
+  - id: nix_opencode_with_mitm
+    name: nix-opencode-with-mitm
+    role: template
+    default_source: nix_mitm_repo
+    urls: {repo: "https://github.com/riedel/nix-opencode-with-mitm"}
+    thread_status: {value: directly_linked, src: hn_thread}
+    summary:
+      value: Prototype using a MITM proxy outside the sandbox for token injection and network control — a DIY embodiment of host-side credential injection.
+      basis: Repo documentation.
+
+  - id: separate_user_account
+    name: Separate dedicated user account
+    role: pattern
+    default_source: hn_thread
+    urls: {}
+    thread_status: {value: mentioned_only}
+    summary:
+      value: A no-sudo user account proposed as "enough"; disputed on shared-kernel, blast-radius, and supply-chain grounds.
+      ev: thread
+    risk:
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        basis: Shared kernel and home directory limit it to the accident tier — the thread's objections, which we endorse.
+
+  - id: diy_container_plus_network
+    name: DIY container + external network control
+    role: pattern
+    default_source: hn_thread
+    urls: {podman: "https://podman.io/", pfsense: "https://www.pfsense.org/"}
+    thread_status: {value: mentioned_only}
+    summary:
+      value: Podman image with a mounted /workspace, no credentials in the container, egress restricted with pfSense and VLANs.
+      ev: thread
+      basis: One commenter's described architecture — the container boundary treated as good enough when egress and credentials are controlled elsewhere.
+    risk:
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        basis: External egress control plus credential exclusion addresses exfiltration even with a container-tier compute boundary.
+
+  - id: k8s_pvc_per_agent
+    name: Kubernetes + PVC per agent session
+    role: pattern
+    default_source: hn_thread
+    urls: {kubernetes: "https://kubernetes.io/"}
+    thread_status: {value: mentioned_only}
+    summary:
+      value: Pod-per-agent with persistent volumes for agent state folders.
+      ev: thread
+
+  - id: separate_machine_proxy_helper
+    name: Separate machine + proxy + helper binary
+    role: pattern
+    default_source: hn_thread
+    urls: {}
+    thread_status: {value: mentioned_only}
+    summary:
+      value: Disposable VMs on another box, a credential-hiding proxy, and a host helper to spawn them.
+      ev: thread
+    risk:
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        basis: Physical/VM separation plus a credential-hiding proxy covers all three tiers, at high DIY cost.
+
+  - id: raspberry_pi_off_laptop
+    name: Raspberry Pi off-laptop box
+    role: pattern
+    default_source: hn_thread
+    urls: {official: "https://www.raspberrypi.com/"}
+    thread_status: {value: mentioned_only}
+    summary:
+      value: Physical isolation for experiments on a separate cheap machine.
+      ev: thread
+    risk:
+      assessed_tiers:
+        value: [t1_accidents, t3_hostile_escape]
+        ev: editorial
+        basis: A separate physical machine is a hardware-grade containment boundary; exfiltration still depends on what network and secrets you give it.
+
+  - id: vm_substrates
+    name: General VM / container substrates
+    role: pattern
+    default_source: hn_thread
+    thread_status: {value: mixed}
+    summary:
+      value: General-purpose isolation substrates suggested as bases rather than agent products.
+      ev: thread
+    members:
+      - {name: QEMU/KVM, url: "https://www.qemu.org/"}
+      - {name: quickemu, url: "https://github.com/quickemu-project/quickemu"}
+      - {name: Vagrant, url: "https://developer.hashicorp.com/vagrant"}
+      - {name: Incus, url: "https://linuxcontainers.org/incus/"}
+      - {name: UTM, url: "https://mac.getutm.app/"}
+      - {name: mkosi, url: "https://github.com/systemd/mkosi"}
+      - {name: podman-machine-os, url: "https://github.com/podman-container-tools/podman-machine-os"}
+      - {name: Firejail, url: "https://github.com/netblue30/firejail"}
+      - {name: Docker (no exposed ports), url: "https://www.docker.com/"}
+      - {name: Apple containerization example, url: "https://github.com/apple/containerization/tree/main/examples"}
+      - {name: devcontainers, url: "https://containers.dev/"}
+      - {name: hardening primitives (AppArmor, bwrap, libseccomp, gVisor, Firecracker), url: null}
+
+  - id: wasm_substrates
+    name: WASM runtimes as alternative substrate
+    role: pattern
+    default_source: hn_thread
+    thread_status: {value: mentioned_only}
+    summary:
+      value: Cloudflare workerd/Workers and container2wasm proposed as lower-footprint substrates for agent sessions.
+      ev: thread
+    members:
+      - {name: Cloudflare workerd, url: "https://github.com/cloudflare/workerd"}
+      - {name: container2wasm, url: "https://news.ycombinator.com/item?id=46825119"}
+
+  - id: claude_cowork_reference
+    name: Claude Cowork (containment reference)
+    role: pattern
+    default_source: anthropic_containment
+    urls: {engineering: "https://www.anthropic.com/engineering/how-we-contain-claude"}
+    thread_status: {value: mentioned_only, src: hn_thread}
+    summary:
+      value: Anthropic's local-VM knowledge-work agent, used in the thread as a comparison point for vendor containment across products.
+      basis: Anthropic containment engineering post.
+
+# -----------------------------------------------------------------------------
+# Source stack — priority ordering for the site's evidence links.
+# -----------------------------------------------------------------------------
+source_stack:
+  - {priority: highest, kind: official_product_docs_and_readmes, why: Where execution model, network policy, persistence, and integrations are actually documented.}
+  - priority: very_high
+    kind: vendor_containment_engineering_posts
+    examples: [anthropic_containment, anthropic_sandboxing, codex_security]
+    why: Best primary material on agent threat models and why sandboxing needs approvals plus network control.
+  - {priority: high, kind: official_pricing_and_service_docs, why: Required for real cost comparison of managed offerings.}
+  - {priority: high, kind: official_api_and_integration_docs, why: Integration surface is a major differentiator.}
+  - {priority: medium, kind: repo_security_model_docs, why: Often contain the best limitations language, especially for OSS tools.}
+  - {priority: medium, kind: hn_thread, ref: hn_thread, why: Discovery, adjacent approaches, and what practitioners think is missing.}
