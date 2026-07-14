@@ -707,16 +707,18 @@ sandboxes:
       isolation_boundary: {value: vm, basis: Cloud VMs on the same stacks/caches as Bitrise CI; one machine per task.}
       state_model: {value: persistent, basis: Persistent on-demand VMs; sessions can be archived and restored.}
       network_policy: operator_managed
-      credential_mediation: {value: managed_integration, basis: Product page states credentials are scoped to the session and VMs are isolated per session; stronger "never land on the machine" claims were not confirmed on the public page.}
+      credential_mediation:
+        value: unspecified
+        basis: Product page says credentials are scoped to the session and agents use user-supplied API keys; that is lifetime/scope control, not documented mediation that keeps secrets off the guest (managed_integration).
     risk:
       stated_scope:
-        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
-        basis: Security framing emphasizes isolation, session-scoped credentials, and the same posture as Bitrise CI infrastructure.
+        value: [t1_accidents, t3_hostile_escape]
+        basis: Security framing emphasizes per-session isolation and the same posture as Bitrise CI infrastructure; public page does not document egress or host-side secret injection for agents.
       assessed_tiers:
-        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        value: [t1_accidents, t3_hostile_escape]
         ev: editorial
         derived_from: [classification.isolation_boundary, classification.credential_mediation]
-        basis: VM isolation plus session-scoped credentials is plausible across tiers; vendor sits inside the trust boundary and public docs are lighter on egress detail.
+        basis: VM isolation is credible for accidents and hostile escape; t2 left unasserted because session-scoped keys still land with the agent and egress control is not documented on the public page; vendor sits inside the trust boundary.
       design_intent:
         value: liberate
         ev: editorial
