@@ -469,8 +469,8 @@ sandboxes:
     thread_status: {value: mentioned_in_report_sources, src: hn_thread}
     platforms: [browser, ssh, vscode]
     agents_supported:
-      value: [shelley_web_agent, agent_agnostic]
-      basis: Shelley ships on the default exeuntu image; product framing is to SSH in and use any agent you like rather than a documented fixed Claude/Codex/Pi preinstall list.
+      value: [claude_code, codex, pi, shelley_web_agent, agent_agnostic]
+      basis: Official Running Agents docs accessed 2026-07-14 state that Claude, Codex, Pi, and Shelley are preinstalled on newly created VMs; other agents can also be installed and run.
     classification:
       role: runtime
       execution_locus: vendor_cloud
