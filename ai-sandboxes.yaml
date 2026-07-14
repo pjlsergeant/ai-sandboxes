@@ -7,11 +7,15 @@
 # v0.2.0 change: no bare ratings. Every non-identity field is a CLAIM that
 # carries its evidence. Fields with no evidentiary basis were deleted
 # (the v0.1 setup_burden / approval_friction / state_ergonomics scales).
+#
+# v0.2.1 change: primary-source audit pass (2026-07-14). Fixed stale version
+# bases, wrong credential/network classifications, overclaimed agent lists,
+# and promoted aide from adjacent-orchestrator to a principal sandbox entry.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.0"
+  version: "0.2.1"
   generated: "2026-07-14"
   primary_thread:
     title: "Show HN: Clawk – Give coding agents a disposable Linux VM, not your laptop"
@@ -240,7 +244,7 @@ sandboxes:
     tagline: Policy guardrails that check every agent tool call before it runs.
     urls: {repo: "https://github.com/LuD1161/agentjail"}
     license: Apache-2.0
-    maturity: {value: early_active, basis: v0.5.0 released July 2026.}
+    maturity: {value: early_active, basis: v0.8.2 released July 2026; still pre-1.0 and shipping rapidly.}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
     agents_supported: [claude_code, codex, cursor]
@@ -250,7 +254,9 @@ sandboxes:
       isolation_boundary: {value: os_sandbox, basis: Hook-based policy checks with optional kernel sandbox (agentjail-shield).}
       state_model: {value: resumable, basis: Per-project overlays and sessions; policies and daemon on host.}
       network_policy: {value: proxy_mediated, basis: Session-aware net proxy; opt-in / interim in some flows.}
-      credential_mediation: unspecified
+      credential_mediation:
+        value: host_side_injection
+        basis: v0.6+ ships a credential broker and secrets vault; shield path strips ambient env; secrets role mediates access rather than leaving keys ambient in the agent environment.
     risk:
       stated_scope:
         value: [t1_accidents, t2_exfiltration]
@@ -258,8 +264,8 @@ sandboxes:
       assessed_tiers:
         value: [t1_accidents, t2_exfiltration]
         ev: editorial
-        derived_from: [classification.isolation_boundary, classification.network_policy]
-        basis: Policy + OS sandbox + proxy address accidents and exfiltration; hostile escape is out of scope without a hypervisor boundary.
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: Policy + OS sandbox + proxy + credential broker address accidents and exfiltration; hostile escape is out of scope without a hypervisor boundary.
       design_intent:
         value: constrain
         basis: Every tool call is checked locally before it runs, per the repo description.
@@ -269,7 +275,7 @@ sandboxes:
       basis: Documented architecture.
     convenience_notes:
       - {value: Stated goal includes reducing approval fatigue.}
-    integrations: [hooks, opa_policies, mcp_scan, daemon, net_proxy_opt_in]
+    integrations: [hooks, opa_policies, mcp_scan, daemon, net_proxy_opt_in, secrets_broker]
     audience: [individual_developer]
     limitations:
       - {value: Not a full VM.}
@@ -282,7 +288,7 @@ sandboxes:
     tagline: Local microVMs with a programmable (TypeScript) network and filesystem policy layer.
     urls: {repo: "https://github.com/earendil-works/gondolin", docs: "https://earendil-works.github.io/gondolin/", security: "https://github.com/earendil-works/gondolin/security"}
     license: {value: Apache-2.0, src: gondolin_repo}
-    maturity: {value: experimental_active, src: gondolin_repo, basis: Self-described as experimental; v0.8.1 with 16 releases as of May 2026.}
+    maturity: {value: experimental_active, src: gondolin_repo, basis: Self-described as experimental; @earendil-works/gondolin package at v0.12.0 as of mid-2026.}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
     agents_supported: [generic_command_execution, pi_extension]
@@ -425,7 +431,7 @@ sandboxes:
       execution_locus: local
       isolation_boundary: {value: vm, basis: KVM/QEMU virtual machines, locked by default.}
       state_model: {value: persistent, basis: Shared sealed base image with per-project qcow2 deltas.}
-      network_policy: {value: allowlist, basis: nftables egress filter with configurable project zones, via passt.}
+      network_policy: {value: configurable, basis: nftables egress zones via passt — none/wan/lan/full plus optional custom single-port holes; default zone is none (no network beyond SSH).}
       credential_mediation: unspecified
     risk:
       stated_scope:
@@ -434,8 +440,8 @@ sandboxes:
       assessed_tiers:
         value: [t1_accidents, t3_hostile_escape]
         ev: editorial
-        derived_from: [classification.isolation_boundary, classification.credential_mediation]
-        basis: Boundary and zoning are strong, but with credential handling unspecified, exfiltration protection depends entirely on what the user places in the VM.
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: Hypervisor boundary and zoning are strong, but with credential handling unspecified, exfiltration protection depends entirely on what the user places in the VM and which zone they choose.
       design_intent:
         value: liberate
         ev: editorial
@@ -462,23 +468,27 @@ sandboxes:
     maturity: {value: public_service, basis: Active docs and pricing; developer-preview origins.}
     thread_status: {value: mentioned_in_report_sources, src: hn_thread}
     platforms: [browser, ssh, vscode]
-    agents_supported: {value: [claude, codex, pi, shelley_web_agent], basis: Claude, Codex, and Pi preinstalled; Shelley web agent included.}
+    agents_supported:
+      value: [shelley_web_agent, agent_agnostic]
+      basis: Shelley ships on the default exeuntu image; product framing is to SSH in and use any agent you like rather than a documented fixed Claude/Codex/Pi preinstall list.
     classification:
       role: runtime
       execution_locus: vendor_cloud
-      isolation_boundary: {value: vm, basis: KVM-isolated real VMs with HTTPS proxy and SSH access.}
+      isolation_boundary: {value: vm, basis: Full hosted Linux VMs with root, apt/systemd, HTTPS proxy, and SSH access.}
       state_model: {value: persistent, basis: Persistent disks; disks backed up; stopped VMs keep their disk.}
       network_policy: {value: operator_managed, basis: VMs private by default; access via proxy/SSH; integrations govern reachability.}
-      credential_mediation: {value: managed_integration, basis: Secrets injected at the network level / via managed integrations rather than parked in-guest.}
+      credential_mediation:
+        value: unspecified
+        basis: Marketing emphasizes private-by-default access and SSH; network-level secret injection was not confirmed in fetched product pages.
     risk:
       stated_scope:
-        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
-        basis: Claims include private-by-default access, key-only SSH, maintained images, and no exposed ports.
+        value: [t1_accidents, t3_hostile_escape]
+        basis: Claims include private-by-default access, real VMs, maintained images, and no exposed ports by default.
       assessed_tiers:
-        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        value: [t1_accidents, t3_hostile_escape]
         ev: editorial
         derived_from: [classification.isolation_boundary, classification.credential_mediation]
-        basis: KVM boundary plus network-level secret injection is credible across tiers; the trade is that the vendor sits inside your trust boundary.
+        basis: Full VM boundary is credible for accidents and hostile escape; exfiltration tier left unasserted without documented credential mediation or egress policy details; vendor sits inside the trust boundary.
       design_intent:
         value: liberate
         ev: editorial
@@ -514,17 +524,21 @@ sandboxes:
       execution_locus: vendor_cloud
       isolation_boundary: {value: microvm, basis: Hardware-isolated Firecracker microVMs with private filesystems and networking.}
       state_model: {value: persistent, basis: Filesystem and memory persist between runs; sleep when idle; checkpoints and restore.}
-      network_policy: {value: allowlist, basis: DNS-based outbound network policy.}
-      credential_mediation: unspecified
+      network_policy:
+        value: configurable
+        basis: Outbound is unrestricted by default; an opt-in DNS-based allowlist policy can tighten egress from outside the Sprite.
+      credential_mediation:
+        value: managed_integration
+        basis: Connectors route external API calls through a gateway that holds tokens for the Sprite; not ambient in-guest secrets by default for those paths. General secret handling beyond Connectors is lightly documented.
     risk:
       stated_scope:
         value: [t1_accidents, t3_hostile_escape]
-        basis: Strong isolation claims for arbitrary and user-submitted code; DNS-based egress policy.
+        basis: Strong isolation claims for arbitrary and user-submitted code; optional DNS egress policy and Connectors for credentialed egress.
       assessed_tiers:
-        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        value: [t1_accidents, t3_hostile_escape]
         ev: editorial
         derived_from: [classification.isolation_boundary, classification.network_policy]
-        basis: Firecracker boundary plus DNS egress policy plausibly covers exfiltration too, though credential handling is unspecified.
+        basis: Firecracker boundary covers accidents and hostile escape; default-open egress means t2 is configuration-dependent (apply network policy + Connectors), so it is not assessed by default.
       design_intent:
         value: liberate
         ev: editorial
@@ -537,10 +551,11 @@ sandboxes:
       basis: Sprites docs.
     convenience_notes:
       - {value: Checkpoint and restore; JS and Go SDKs.}
-    integrations: [cli, rest_api, js_sdk, go_sdk, network_policies]
+    integrations: [cli, rest_api, js_sdk, go_sdk, network_policies, connectors]
     audience: [platform_builder, individual_developer]
     limitations:
       - {value: Managed service only.}
+      - {value: Outbound unrestricted until an egress policy is applied.}
       - {value: Operational limits and region selection still evolving.}
     compliance: {value: none_stated_in_fetched_docs}
 
@@ -601,7 +616,9 @@ sandboxes:
       role: runtime
       execution_locus: local
       isolation_boundary: {value: microvm, basis: Apple container runtime / VM-level isolation.}
-      state_model: unspecified
+      state_model:
+        value: resumable
+        basis: Documented stop/start preserves uploads, kernels, and installed packages in the same container; delete + reinstall for a clean slate.
       network_policy: unspecified
       credential_mediation: unspecified
     risk:
@@ -622,11 +639,11 @@ sandboxes:
       value: Apple-container VM per sandbox on Apple Silicon.
       basis: Documented runtime.
     convenience_notes: []
-    integrations: [coderunner_ui, instavm_ecosystem, cloud_compatible_workflow]
+    integrations: [coderunner_ui, instavm_ecosystem, cloud_compatible_workflow, mcp_server]
     audience: [mac_developer]
     limitations:
       - {value: Apple-centric.}
-      - {value: Fetched sources light on persistence and policy detail., ev: editorial, basis: Comparative observation across this dataset's entries.}
+      - {value: Fetched sources light on network and credential policy detail., ev: editorial, basis: Comparative observation across this dataset's entries.}
     compliance: {value: none_stated}
 
   - id: yolobox
@@ -638,13 +655,15 @@ sandboxes:
     maturity: {value: active_0x}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
-    agents_supported: [agent_agnostic, claude_examples]
+    agents_supported:
+      value: [claude_code, codex, gemini, antigravity, opencode, copilot, pi, agent_agnostic]
+      basis: First-class CLI shortcuts documented for Claude, Codex, Gemini, Antigravity, OpenCode, Copilot, and Pi; shell/run cover other harnesses.
     classification:
       role: runtime
       execution_locus: local
       isolation_boundary: {value: container, basis: Container-based; agent gets sudo inside the container.}
       state_model: {value: persistent, basis: Named volumes preserve setup across sessions.}
-      network_policy: {value: open, basis: Open network by default.}
+      network_policy: {value: open, basis: Open network by default; --no-network available per command.}
       credential_mediation: {value: mounted, basis: Passed-in secrets are exposed to the agent, per its own security notes.}
     risk:
       stated_scope:
@@ -678,33 +697,33 @@ sandboxes:
     tagline: Hosted isolated VMs (macOS and Linux) for remote dev and agent sessions on CI infrastructure.
     urls: {official: "https://bitrise.io/platform/remote-dev-environments"}
     license: proprietary_service
-    maturity: {value: beta, basis: Open beta; June 2026 post describes a free self-serve beta.}
+    maturity: {value: beta, basis: Product page positions RDE as in beta with free trial / talk-to-us packaging.}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: {value: [macos_cloud, linux_cloud], basis: macOS and Linux cloud environments on Bitrise CI stacks.}
-    agents_supported: {value: [claude_code, codex, mcp_orchestrated_agents], basis: Officially supports Claude Code and Codex with user-supplied keys; can orchestrate agents through MCP.}
+    agents_supported: {value: [claude_code, codex, gemini_cli, mcp_orchestrated_agents], basis: Product page lists Claude Code, Codex, Gemini CLI, and MCP-orchestrated agents among supported tools.}
     classification:
       role: remote_workspace
       execution_locus: vendor_cloud
       isolation_boundary: {value: vm, basis: Cloud VMs on the same stacks/caches as Bitrise CI; one machine per task.}
       state_model: {value: persistent, basis: Persistent on-demand VMs; sessions can be archived and restored.}
       network_policy: operator_managed
-      credential_mediation: {value: managed_integration, basis: Push-scoped keys that never land on the machine; separation from orchestrator credentials.}
+      credential_mediation: {value: managed_integration, basis: Product page states credentials are scoped to the session and VMs are isolated per session; stronger "never land on the machine" claims were not confirmed on the public page.}
     risk:
       stated_scope:
         value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
-        basis: Security framing emphasizes isolation, push-scoped keys, machine deletion after work, and credential separation.
+        basis: Security framing emphasizes isolation, session-scoped credentials, and the same posture as Bitrise CI infrastructure.
       assessed_tiers:
         value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
         ev: editorial
         derived_from: [classification.isolation_boundary, classification.credential_mediation]
-        basis: VM isolation plus scoped off-machine keys is credible across tiers; vendor sits inside the trust boundary.
+        basis: VM isolation plus session-scoped credentials is plausible across tiers; vendor sits inside the trust boundary and public docs are lighter on egress detail.
       design_intent:
         value: liberate
         ev: editorial
         basis: Off-laptop machines for agents to work in, one per task.
     pricing:
       model: contact_sales
-      notes: {value: Product page says talk-to-us; beta post says free self-serve beta — pricing in flux.}
+      notes: {value: Product page offers free trial and says talk-to-us for fit; packaging still in flux during beta.}
     footprint_notes:
       value: Vendor hardware, including cloud macOS — rare in this space.
       basis: Product page.
@@ -892,6 +911,58 @@ sandboxes:
       - {value: Explicitly not an escape barrier, per its own README.}
     compliance: {value: none_stated}
 
+  - id: aide
+    name: aide
+    default_source: aide_repo
+    tagline: One-command agent launcher with OS-native sandboxing, capability grants, and SOPS secrets.
+    urls: {repo: "https://github.com/jskswamy/aide/"}
+    license: MIT
+    maturity: {value: early_active, basis: Actively released OSS with CI and sandbox docs; still evolving.}
+    thread_status: {value: directly_linked, src: hn_thread}
+    platforms: [macos, linux]
+    agents_supported:
+      value: [claude_code, codex, aider, agent_agnostic]
+      basis: Unified launcher resolves whichever agent is configured or on PATH; Claude, Codex, and Aider cited in README examples.
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary:
+        value: os_sandbox
+        basis: Platform-native enforcer — macOS Seatbelt or Linux Landlock (bubblewrap fallback for filesystem isolation when Landlock is unavailable).
+      state_model: {value: persistent, basis: Host workspace and config; agent runs against the local project under sandbox rules rather than a disposable guest disk.}
+      network_policy:
+        value: open
+        basis: Default code-only mode allows network outbound while locking sensitive host paths; no default-deny egress allowlist.
+      credential_mediation:
+        value: mounted
+        basis: SOPS/age secrets decrypt in-process (not left as plaintext on disk); capability flags unlock specific host credential paths (AWS, docker, kubeconfig, etc.) into the sandbox.
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: README positions code-only guards against touching SSH keys, cloud credentials, and browser data while still allowing code work and network; not a hypervisor boundary.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.credential_mediation]
+        basis: OS sandbox plus capability-gated credentials address accidents and opportunistic exfiltration; hostile escape remains OS-sandbox-grade, not microVM/VM-grade.
+      design_intent:
+        value: both
+        basis: Constrain via never-allow / capability walls; liberate via fewer permission prompts inside the approved envelope.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: OS-sandbox primitives around the agent process; no VM or container required.
+      basis: Documented Seatbelt / Landlock / bubblewrap path.
+    convenience_notes:
+      - {value: YAML project config with trust gate; one command across agents.}
+      - {value: Capability bundles (docker, k8s, aws, …) instead of hand-written path rules.}
+    integrations: [cli, aide_yaml, sops_age_secrets, capabilities, mcp]
+    audience: [individual_developer, team]
+    limitations:
+      - {value: Shared-kernel OS sandbox, not a microVM or full VM.}
+      - {value: Network open in default code-only mode.}
+      - {value: Unlocked capabilities intentionally expose the corresponding credentials to the agent.}
+    compliance: {value: none_stated}
+
 # -----------------------------------------------------------------------------
 # Adjacent tools & approaches. Same claim conventions; lighter schema.
 # -----------------------------------------------------------------------------
@@ -932,16 +1003,6 @@ adjacent:
     summary:
       value: Template repo packaging Pi inside a devcontainer with a non-root user and explicit environment files.
       basis: Repo documentation.
-
-  - id: aide
-    name: Aide
-    role: orchestrator
-    default_source: aide_repo
-    urls: {repo: "https://github.com/jskswamy/aide/"}
-    thread_status: {value: directly_linked, src: hn_thread}
-    summary:
-      value: YAML-driven configuration and SOPS-backed credential management — addresses the secret-path dimension rather than the compute boundary.
-      basis: Repo documentation; positioned in the thread as a complement to sandboxing.
 
   - id: scratch
     name: scratch
