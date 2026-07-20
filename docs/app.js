@@ -75,6 +75,8 @@ async function init() {
   try {
     const text = await fetchYaml();
     state.data = jsyaml.load(text);
+    const total = state.data.sandboxes.length + state.data.adjacent.length;
+    document.getElementById("subtitle").textContent = ` — ${total} ways to jail your agents`;
     applyDefaultQuickstart();
     renderFacets();
     renderCards();
