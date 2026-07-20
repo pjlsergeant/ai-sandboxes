@@ -11,12 +11,17 @@
 # v0.2.1 change: primary-source audit pass (2026-07-14). Fixed stale version
 # bases, wrong credential/network classifications, overclaimed agent lists,
 # and promoted aide from adjacent-orchestrator to a principal sandbox entry.
+#
+# v0.2.2 change: added nono.sh and strongdm/leash (2026-07-20), both sourced
+# from a user-submitted recommendation (private email) rather than the HN
+# thread — see their thread_status fields.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.1"
+  version: "0.2.2"
   generated: "2026-07-14"
+  updated: "2026-07-20"
   primary_thread:
     title: "Show HN: Clawk – Give coding agents a disposable Linux VM, not your laptop"
     url: "https://news.ycombinator.com/item?id=48892859"
@@ -155,6 +160,12 @@ sources:
   scratch_repo:         {url: "https://github.com/housecat-inc/scratch", title: "scratch README"}
   katsuobushi_repo:     {url: "https://github.com/cdata/katsuobushi/tree/main/lib/sandbox", title: "katsuobushi sandbox"}
   nix_mitm_repo:        {url: "https://github.com/riedel/nix-opencode-with-mitm", title: "nix-opencode-with-mitm README"}
+  nono_repo:            {url: "https://github.com/nolabs-ai/nono", title: "nono README"}
+  nono_site:            {url: "https://nono.sh/", title: "nono site"}
+  nono_docs:            {url: "https://nono.sh/docs/llms.txt", title: "nono docs (llms.txt)"}
+  leash_repo:           {url: "https://github.com/strongdm/leash", title: "Leash (strongDM) README"}
+  leash_disclaimer:     {url: "https://raw.githubusercontent.com/strongdm/leash/main/DISCLAIMER.txt", title: "Leash DISCLAIMER.txt"}
+  user_email_2026_07_20: {url: null, title: "User-submitted comparison, private email, 2026-07-20 (not part of the HN thread)"}
 
 # -----------------------------------------------------------------------------
 # UI hints. The decision funnel keys off documented fields only.
@@ -872,24 +883,34 @@ sandboxes:
   - id: byre
     name: byre
     default_source: byre_repo
-    tagline: Transparent, low-magic local containers with explicit access grants and readable generated Dockerfiles.
-    urls: {repo: "https://github.com/pjlsergeant/byre"}
+    tagline: "A comfortable, constrained container box around any project folder — \"--dangerously-skip-permissions, without risking the farm.\""
+    urls: {repo: "https://github.com/pjlsergeant/byre", docs: "https://getbyre.com/docs"}
     license: MIT
-    maturity: {value: young, basis: v0.2.0 released July 2026.}
+    maturity:
+      value: young
+      basis: "v1.1.0 released 2026-07-19. Its own README: \"byre is a young project. I spend all day, every day inside it\" and \"all the major planned features have been added, so the interface should be pretty stable at this point.\""
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [linux, macos]
-    agents_supported: [claude_code, codex, gemini, grok]
+    agents_supported:
+      value: [claude_code, codex, gemini, grok, opencode]
+      basis: Bundled agent skills ship for Claude Code, Codex, Gemini, Grok, and OpenCode.
     classification:
       role: runtime
       execution_locus: local
-      isolation_boundary: {value: container, basis: Local container via Docker or Podman; generated Dockerfiles are readable and editable.}
-      state_model: {value: persistent, basis: Per-project state and cache volumes; login persists per project across rebuilds.}
-      network_policy: {value: open, basis: Network open by default.}
-      credential_mediation: {value: mounted, basis: Project mounted read-write; credentials passed through.}
+      isolation_boundary:
+        value: container
+        basis: "Local container via Docker or Podman (rootful or rootless), Debian-derived base images; current folder mounted read-write into /workspace. README: \"Not a security product: a container is not a microVM.\""
+      state_model:
+        value: persistent
+        basis: Per-project state and cache volumes persist across rebuilds; agent logins persist per project, with an opt-in machine-wide shared-auth mode available at first run.
+      network_policy:
+        value: configurable
+        basis: Open by default; the firewall skill flips to deny-by-default with an allowlist, and the firewall-open skill keeps network open while selectively blocking named hosts (egress = ["!host"]).
+      credential_mediation: {value: mounted, basis: Project mounted read-write; credentials passed through, with an opt-in shared-auth mode across projects.}
     risk:
       stated_scope:
         value: [t1_accidents]
-        basis: README explicitly says it is not a security product, that containers are not microVMs, and that it is not intended for state-sponsored-malware-grade threat models.
+        basis: "README explicitly says it is not a security product, that containers are not microVMs, and that protections exist \"from over-eager and reckless agents, not from state-sponsored malware\" — and are \"one config edit away from off.\""
       assessed_tiers:
         value: [t1_accidents]
         ev: editorial
@@ -898,19 +919,20 @@ sandboxes:
       design_intent:
         value: liberate
         ev: editorial
-        basis: An ergonomic box for agents, with transparency rather than gating as the differentiator.
+        basis: An ergonomic, comfortable box for agents, with transparency rather than gating as the differentiator.
     pricing: {model: free_oss}
     footprint_notes:
-      value: Shared-kernel container per project; generated Dockerfiles keep lock-in low.
+      value: Shared-kernel container per project; generated Dockerfiles keep lock-in low, with exit hatches (`byre dockerfile`, `byre dockerrun`) for leaving byre entirely.
       basis: Documented architecture.
     convenience_notes:
-      - {value: TUI, TOML layering, reusable templates and skills.}
-    integrations: [tui, toml_layering, generated_dockerfiles, templates, skills]
+      - {value: "Interactive TUI config editor; TOML config layering (personal, template, shared, per-project); reusable templates (Go, Node, Python) and skills; `byre worktree` for linked git worktrees with separate boxed sessions; `byre deliver`/`byre grab` for bidirectional file transfer; MCP server support (`byre mcp add`); shippable `byre.preset` files."}
+    integrations: [tui, toml_layering, generated_dockerfiles, templates, skills, mcp_server, worktrees, file_delivery, presets]
     audience: [individual_developer]
     limitations:
-      - {value: Network open by default.}
+      - {value: Network open by default unless the firewall skill is enabled.}
       - {value: Project mounted read-write.}
       - {value: Explicitly not an escape barrier, per its own README.}
+      - {value: Debian-derived base images only.}
     compliance: {value: none_stated}
 
   - id: aide
@@ -963,6 +985,124 @@ sandboxes:
       - {value: Shared-kernel OS sandbox, not a microVM or full VM.}
       - {value: Network open in default code-only mode.}
       - {value: Unlocked capabilities intentionally expose the corresponding credentials to the agent.}
+    compliance: {value: none_stated}
+
+  - id: nono
+    name: nono
+    default_source: nono_repo
+    tagline: Kernel-enforced OS sandbox (Landlock/seccomp/Seatbelt) with a credential proxy for terminal coding agents.
+    urls: {official: "https://nono.sh/", repo: "https://github.com/nolabs-ai/nono", docs: "https://nono.sh/docs/llms.txt"}
+    license: Apache-2.0
+    maturity:
+      value: pre_1_0_active
+      basis: v0.68.0 as of July 2026 with 100+ releases; README states "In the lead-up to a 1.0 release, APIs are stabilizing."
+    thread_status:
+      value: not_from_hn_thread
+      src: user_email_2026_07_20
+      basis: Added 2026-07-20 from a user-submitted recommendation (private email), independent of the source HN thread; the user described it as their current setup on top of a plain container dev env.
+    platforms:
+      value: [macos, linux, windows_wsl2]
+      basis: Explicitly supports macOS, Linux (Debian/Ubuntu, Fedora, Arch, RHEL, openSUSE, Nix), and Windows via WSL2, with a documented WSL2 feature-compatibility matrix.
+    agents_supported:
+      value: [claude_code, opencode, codex, antigravity, goose, openclaw, github_copilot, qwen_code, pi, hermes]
+      src: nono_site
+      basis: Site states it "sandboxes any terminal agent" and names these explicitly.
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary:
+        value: os_sandbox
+        basis: README states "no daemon, no container, no VM, and no disk space usage"; uses Linux Landlock layered with seccomp-notify, and Apple's Seatbelt sandbox on macOS.
+      state_model:
+        value: persistent
+        basis: Runs directly against the host project (no separate VM/container disk); capability sets can be serialized/restored as JSON, and atomic rollbacks use content-addressable filesystem snapshots.
+      network_policy:
+        value: configurable
+        basis: Domain-level (L7) allow-list filtering and proxy modes; README frames it as enforcing "a least-privilege sandbox" with example policies showing explicit default-deny rules requiring allow-listing, though the exact pre-configuration default was not confirmed in fetched docs.
+      credential_mediation:
+        value: host_side_injection
+        src: nono_docs
+        basis: Site states secrets "are injected at the boundary and never exposed to the agent" and "zeroised on exit"; supports proxy-based injection from OS keystore, 1Password, Bitwarden, Apple Passwords, files, or env, plus sandboxed OAuth logins where the agent only ever sees a phantom token.
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: Marketing centers on capability-based least privilege, irrevocable OS-level allow-lists, a credential proxy that keeps real secrets off the agent process, and a tamper-evident audit trail; it does not make an explicit hypervisor-grade escape claim.
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: Landlock/seccomp/Seatbelt is OS-sandbox-grade, not microVM/VM-grade, so it is assessed like this dataset's other os_sandbox entries (aide, flar) — credible for accidents and exfiltration, not for hostile-code escape.
+      design_intent:
+        value: constrain
+        basis: Framing centers on capability-based least privilege, irrevocable allow-lists, and audit trails — gating agent actions rather than open-ended autonomy.
+    pricing:
+      model: free_oss
+      notes: {value: Core CLI is Apache-2.0 OSS; a dedicated pricing page returned 404 at audit time (2026-07-20), so a possible paid/hosted tier is unconfirmed.}
+    footprint_notes:
+      value: No daemon, container, or VM disk usage — kernel primitives applied directly to the agent process.
+      basis: README's own framing ("no daemon, no container, no VM, and no disk space usage").
+    convenience_notes:
+      - {value: OAuth logins run inside the sandbox using phantom tokens; capability sets are serializable to JSON for reuse across sessions.}
+    integrations: [cli, credential_proxy, oauth_phantom_tokens, capability_sets_json, os_keystore_integrations]
+    audience: [individual_developer, security_minded_developer]
+    limitations:
+      - {value: Pre-1.0; APIs still stabilizing, per its own docs.}
+      - {value: OS-sandbox boundary (Landlock/seccomp/Seatbelt), not hypervisor-grade.}
+      - {value: Windows support is WSL2-only with documented feature gaps.}
+    compliance: {value: none_stated}
+
+  - id: leash
+    name: Leash (strongDM)
+    default_source: leash_repo
+    tagline: Cedar-policy-enforced container wrapper for coding agents, with filesystem/network/MCP-call monitoring.
+    urls: {repo: "https://github.com/strongdm/leash"}
+    license: Apache-2.0
+    maturity: {value: early_active, basis: 9 releases, latest v1.1.7 as of March 2026; 581 GitHub stars; active development.}
+    thread_status:
+      value: not_from_hn_thread
+      src: user_email_2026_07_20
+      basis: Added 2026-07-20 from a user-submitted recommendation (private email); the user reported starting here before nono.sh but moving off it because spinning it up per git worktree was too slow for their workflow.
+    platforms:
+      value: [macos, linux, windows_wsl2]
+      basis: "README states support for \"macOS or Linux (WSL, too!)\"; ships a native macOS helper app for an experimental monitoring mode."
+    agents_supported:
+      value: [claude_code, codex, gemini_cli, qwen, opencode]
+      basis: Built-in agent images ship for claude, codex, gemini, qwen, and opencode via the default coder image; extensible to custom images.
+    classification:
+      role: policy_wrapper
+      execution_locus: local
+      isolation_boundary: {value: container, basis: Wraps agents in Docker/Podman containers with syscall-level activity monitoring.}
+      state_model: unspecified
+      network_policy:
+        value: configurable
+        basis: "Cedar policy files can restrict which network connections the containerized agent may initiate, and full monitoring mode logs every connection made — but a policy is opt-in (`--policy` is an optional flag); primary sources do not document a deny-by-default network posture with no policy supplied."
+      credential_mediation:
+        value: mounted
+        basis: "Environment forwarding automatically maps provider API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, DASHSCOPE_API_KEY) into the container; mount prompts let users approve credential forwarding with persistent decisions, and agent config directories such as ~/.codex can be bind-mounted read-write into the container per docs/CONFIG.md — keys and configs land inside the container rather than being proxied at the boundary."
+    risk:
+      stated_scope:
+        value: [t1_accidents]
+        basis: README frames Leash as wrapping agents in containers and monitoring every filesystem access and network connection, with Cedar policy enforcement and MCP tool-call inspection; it documents monitoring and optional policy enforcement, not a default-deny egress posture, so it does not itself claim exfiltration-tier containment out of the box.
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: Container boundary supports accident containment. Exfiltration-tier credit requires a restrictive network policy to be in effect, but network policy here is opt-in rather than default-deny, and provider credentials plus agent config directories can be mounted read-write into the container — so t2_exfiltration is not assessed without the operator configuring a Cedar policy themselves. Hostile-code escape is out of scope without a hypervisor/microVM boundary.
+      design_intent:
+        value: constrain
+        basis: Cedar policy rules gate filesystem, network, and MCP tool calls while the agent runs.
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Two containers per session (an agent container plus a Leash manager container) via Docker/Podman; native macOS helper app adds an experimental monitoring mode.
+      basis: "README's Key Concepts section documents an agent container plus a manager container, with env vars forwarded into both."
+    convenience_notes:
+      - {value: Default coder image ships ready-to-run agent CLIs (claude, codex, gemini, qwen, opencode); install via npm, Homebrew (macOS), or prebuilt binaries.}
+    integrations: [cli, npm, homebrew, cedar_policies, mcp_inspection, docker, podman]
+    audience: [individual_developer]
+    limitations:
+      - {value: "Its own DISCLAIMER.txt provides no warranty and states \"no support or maintenance is provided. Use is at your own risk,\" with no further security scoping.", src: leash_disclaimer}
+      - {value: Provider API keys are forwarded into the container rather than proxied at the boundary.}
+      - {value: One user reported per-worktree spin-up was slow enough to prompt switching to a different tool; not vendor-documented or independently benchmarked., ev: editorial, src: user_email_2026_07_20}
     compliance: {value: none_stated}
 
 # -----------------------------------------------------------------------------
