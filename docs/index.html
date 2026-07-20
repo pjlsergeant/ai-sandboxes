@@ -7,6 +7,7 @@
   <meta name="description" content="A structured, evidence-carrying dataset of sandboxes and adjacent approaches for running AI coding agents with isolation, network control, or credential mediation.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f5d4f'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='18' fill='%23fbfaf8' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script async data-id="101509025" src="//static.getclicky.com/js"></script>
 </head>
 <body>
@@ -15,8 +16,8 @@
       <div class="brand">
         <div>
           <h1>please do not escape</h1>
-          <p class="tagline">A dataset of sandboxes for AI coding agents, with a source cited for every claim.</p>
-          <p class="origin-note">Started from a <a href="https://news.ycombinator.com/item?id=48892859" target="_blank" rel="noopener">Show HN thread</a>, then independently re-verified and expanded against primary sources.</p>
+          <p class="tagline">A dataset of sandboxes for AI coding agents. Click <a href="https://github.com/pjlsergeant/ai-sandboxes/blob/main/ai-sandboxes.yaml" target="_blank" rel="noopener">here for the raw YAML</a>.</p>
+          <p class="origin-note">Starting point was <a href="https://news.ycombinator.com/item?id=48892859" target="_blank" rel="noopener">this Show HN thread</a> and then other recommendations people have sent me (mail: <a href="mailto:pete@sgnt.ai">pete@sgnt.ai</a>, or open a PR).</p>
         </div>
       </div>
       <nav class="header-links">
@@ -67,15 +68,24 @@
         <span class="card-role"></span>
       </header>
       <p class="card-tagline"></p>
-      <div class="card-badges"></div>
+      <table class="card-facet-table"><tbody></tbody></table>
       <dl class="card-facts"></dl>
       <div class="card-limitations"></div>
+      <button class="card-details-toggle link-btn" type="button">Show raw details</button>
       <footer class="card-footer">
         <a class="card-primary-link" href="#"></a>
         <span class="card-links"></span>
       </footer>
     </article>
   </template>
+
+  <dialog id="detailsModal" class="details-modal">
+    <header class="details-modal-header">
+      <h3 id="detailsModalTitle"></h3>
+      <button id="detailsModalClose" type="button" aria-label="Close">&times;</button>
+    </header>
+    <div id="detailsModalBody" class="card-details"></div>
+  </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <script src="app.js"></script>

@@ -293,7 +293,10 @@ function renderCards() {
   const container = document.getElementById("cards");
   container.innerHTML = "";
 
-  const pool = allEntries();
+  // "Adjacent tools & patterns" is an alternative to the sandboxes, not an
+  // addition to them — checking it swaps the view entirely.
+  const showingAdjacent = document.getElementById("showAdjacent").checked;
+  const pool = showingAdjacent ? state.data.adjacent : state.data.sandboxes;
   const results = pool.filter(matchesFilters);
 
   // Pin byre to the top, glowing, when (and only when) it's honestly part of
@@ -316,18 +319,86 @@ function renderCards() {
 
   const template = document.getElementById("cardTemplate");
   for (const entry of results) {
-    const isAdjacent = !state.data.sandboxes.includes(entry);
-    container.appendChild(renderCard(entry, isAdjacent));
+    container.appendChild(renderCard(entry, showingAdjacent));
   }
   void template;
 }
 
-function chip(labelText, claim) {
-  const span = document.createElement("span");
-  span.className = "chip" + (claim.ev !== "official" ? ` ev-${claim.ev}` : "");
-  span.textContent = labelText;
-  if (claim.basis) span.title = claim.basis;
-  return span;
+// One Font Awesome icon per facet dimension, so the table reads at a glance
+// without repeating "Isolation boundary: / Network policy: / ..." labels.
+const FACET_ICONS = {
+  isolation_boundary: "fa-solid fa-shield-halved",
+  network_policy: "fa-solid fa-network-wired",
+  credential_mediation: "fa-solid fa-key",
+  pricing_model: "fa-solid fa-tag",
+};
+
+function facetTableRow(iconKey, label, labelText, claim) {
+  const tr = document.createElement("tr");
+
+  const iconTd = document.createElement("td");
+  iconTd.className = "facet-icon";
+  const icon = document.createElement("i");
+  icon.className = FACET_ICONS[iconKey];
+  icon.title = label;
+  iconTd.appendChild(icon);
+
+  const labelTd = document.createElement("td");
+  labelTd.className = "facet-label";
+  labelTd.textContent = label;
+
+  const valueTd = document.createElement("td");
+  valueTd.className = "facet-value" + (claim.ev !== "official" ? ` ev-${claim.ev}` : "");
+  valueTd.textContent = labelText;
+  if (claim.basis) valueTd.title = claim.basis;
+
+  tr.append(iconTd, labelTd, valueTd);
+  return tr;
+}
+
+// A claim's `src` always resolves (resolveClaim defaults it to the entry's
+// default_source), so every row here can cite something real.
+function detailRow(label, text, claim) {
+  const row = document.createElement("div");
+  row.className = "detail-row";
+
+  const head = document.createElement("div");
+  head.className = "detail-row-head";
+  const labelSpan = document.createElement("span");
+  labelSpan.className = "detail-label";
+  labelSpan.textContent = `${label}:`;
+  const textSpan = document.createElement("span");
+  textSpan.textContent = ` ${text} `;
+  const evSpan = document.createElement("span");
+  evSpan.className = `detail-ev ev-${claim.ev}`;
+  evSpan.textContent = claim.ev;
+  head.append(labelSpan, textSpan, evSpan);
+  row.appendChild(head);
+
+  const src = state.data.sources[claim.src];
+  const sourceLine = document.createElement("div");
+  sourceLine.className = "detail-source";
+  sourceLine.append("source: ");
+  if (src && src.url) {
+    const a = document.createElement("a");
+    a.href = src.url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = src.title;
+    sourceLine.appendChild(a);
+  } else {
+    sourceLine.append(document.createTextNode(src ? src.title : claim.src || "unsourced"));
+  }
+  row.appendChild(sourceLine);
+
+  if (claim.basis) {
+    const basisLine = document.createElement("div");
+    basisLine.className = "detail-basis";
+    basisLine.textContent = claim.basis;
+    row.appendChild(basisLine);
+  }
+
+  return row;
 }
 
 function renderCard(entry, isAdjacent) {
@@ -350,13 +421,21 @@ function renderCard(entry, isAdjacent) {
     node.querySelector(".card-title").textContent = entry.name;
   }
 
+  // Every claim shown on this card gets logged here as {label, text, claim},
+  // so the "Show details" panel can cite an actual source for each one --
+  // otherwise "a source cited for every claim" is just something the
+  // tagline says, not something you can go check.
+  const detailEntries = [];
+
   const roleClaim = resolveClaim(getRole(entry), entry);
   node.querySelector(".card-role").textContent = roleClaim
     ? taxonomyLabel(state.data, "product_role", roleClaim.value)
     : "";
+  if (roleClaim) detailEntries.push({ label: "Role", text: taxonomyLabel(state.data, "product_role", roleClaim.value), claim: roleClaim });
 
   const taglineClaim = resolveClaim(entry.tagline ?? entry.summary, entry);
   node.querySelector(".card-tagline").textContent = taglineClaim ? taglineClaim.value : "";
+  if (taglineClaim) detailEntries.push({ label: entry.tagline ? "Tagline" : "Summary", text: taglineClaim.value, claim: taglineClaim });
 
   if (entry.id === "byre") {
     card.classList.add("is-byre");
@@ -364,23 +443,27 @@ function renderCard(entry, isAdjacent) {
     note.className = "byre-note";
     note.innerHTML =
       "I wrote <a href=\"https://github.com/pjlsergeant/byre\" target=\"_blank\" rel=\"noopener\">byre</a>, so I think it's great, and that's why there's a box around it.";
-    node.querySelector(".card-header").insertAdjacentElement("afterend", note);
+    node.querySelector(".card-tagline").insertAdjacentElement("afterend", note);
   }
 
-  // Badges: the four classification facets + pricing, when present.
-  const badgesEl = node.querySelector(".card-badges");
-  const badgeFields = [
-    ["classification.isolation_boundary", "isolation_boundary"],
-    ["classification.network_policy", "network_policy"],
-    ["classification.credential_mediation", "credential_mediation"],
-    ["pricing.model", "pricing_model"],
+  // Facet table: the four classification facets + pricing, when present,
+  // one icon-labeled row each.
+  const facetTableBody = node.querySelector(".card-facet-table tbody");
+  const facetFields = [
+    ["classification.isolation_boundary", "isolation_boundary", "Isolation"],
+    ["classification.network_policy", "network_policy", "Network"],
+    ["classification.credential_mediation", "credential_mediation", "Credentials"],
+    ["pricing.model", "pricing_model", "Pricing"],
   ];
-  for (const [path, taxonomyKey] of badgeFields) {
+  for (const [path, taxonomyKey, label] of facetFields) {
     const raw = get(entry, path);
     if (raw === undefined) continue;
     const claim = resolveClaim(raw, entry);
-    badgesEl.appendChild(chip(taxonomyLabel(state.data, taxonomyKey, claim.value), claim));
+    const text = taxonomyLabel(state.data, taxonomyKey, claim.value);
+    facetTableBody.appendChild(facetTableRow(taxonomyKey, label, text, claim));
+    detailEntries.push({ label, text, claim });
   }
+  if (!facetTableBody.children.length) node.querySelector(".card-facet-table").remove();
 
   // Facts: maturity, license, platforms, agents supported, audience.
   const factsEl = node.querySelector(".card-facts");
@@ -404,6 +487,7 @@ function renderCard(entry, isAdjacent) {
     if (claim.ev !== "official") dd.title = `(${claim.ev}) ${claim.basis || ""}`.trim();
     factsEl.appendChild(dt);
     factsEl.appendChild(dd);
+    detailEntries.push({ label, text: value, claim });
   }
 
   // Limitations (or, for adjacent entries, the risk basis) as a short list.
@@ -416,11 +500,19 @@ function renderCard(entry, isAdjacent) {
       li.textContent = c.value;
       if (c.ev !== "official") li.title = `(${c.ev}) ${c.basis || ""}`.trim();
       ul.appendChild(li);
+      detailEntries.push({ label: "Limitation", text: c.value, claim: c });
     }
     limsEl.appendChild(ul);
   } else {
     limsEl.remove();
   }
+
+  // Show details: opens the single shared modal with every claim logged
+  // above, each with its actual source linked (not just a hover tooltip on
+  // the basis, which is easy to miss).
+  node.querySelector(".card-details-toggle").addEventListener("click", () => {
+    openDetailsModal(entry.name, detailEntries);
+  });
 
   // Footer: the same primary link again as an obvious button, plus the rest
   // as smaller secondary links.
@@ -459,7 +551,27 @@ function renderCard(entry, isAdjacent) {
 
 // ---- static controls --------------------------------------------------
 
+function openDetailsModal(entryName, detailEntries) {
+  const modal = document.getElementById("detailsModal");
+  document.getElementById("detailsModalTitle").textContent = entryName;
+  const body = document.getElementById("detailsModalBody");
+  body.innerHTML = "";
+  for (const { label, text, claim } of detailEntries) {
+    body.appendChild(detailRow(label, text, claim));
+  }
+  modal.showModal();
+}
+
 function bindStaticControls() {
+  const modal = document.getElementById("detailsModal");
+  document.getElementById("detailsModalClose").addEventListener("click", () => modal.close());
+  // Click on the backdrop (::backdrop is unclickable-through, so a click
+  // that lands on the <dialog> element itself, outside its content box, is
+  // a backdrop click) closes it too, same as the native close button.
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.close();
+  });
+
   document.getElementById("clearFilters").addEventListener("click", () => {
     // "Clear filters" means "back to how the page loaded": defaults
     // restored, not everything wiped blank — a true blank slate is what

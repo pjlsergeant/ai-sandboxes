@@ -216,21 +216,14 @@ a:hover { text-decoration: underline; }
 }
 .card-tagline { margin: 0; color: var(--text-dim); font-size: 13.5px; }
 
-.card-badges { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  cursor: default;
-  background: var(--chip-official-bg);
-  color: var(--chip-official-text);
-}
-.chip.ev-thread { background: var(--chip-thread-bg); color: var(--chip-thread-text); }
-.chip.ev-editorial { background: var(--chip-editorial-bg); color: var(--chip-editorial-text); }
-.chip[title] { border-bottom: 1px dotted currentColor; }
+.card-facet-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.card-facet-table td { padding: 3px 0; vertical-align: middle; }
+.card-facet-table .facet-icon { width: 20px; color: var(--text-dim); text-align: center; font-size: 12px; }
+.card-facet-table .facet-label { color: var(--text-dim); padding-right: 10px; white-space: nowrap; }
+.card-facet-table .facet-value { color: var(--text); font-weight: 500; }
+.card-facet-table .facet-value.ev-thread { color: var(--chip-thread-text); }
+.card-facet-table .facet-value.ev-editorial { color: var(--chip-editorial-text); }
+.card-facet-table .facet-value[title] { border-bottom: 1px dotted currentColor; cursor: default; }
 
 .card-facts {
   margin: 0;
@@ -248,6 +241,71 @@ a:hover { text-decoration: underline; }
 }
 .card-limitations ul { margin: 4px 0 0; padding-left: 18px; }
 .card-limitations li { margin-bottom: 2px; }
+
+.card-details-toggle {
+  align-self: flex-start;
+  font-size: 11.5px;
+}
+
+/* Details modal: a single shared <dialog>, populated per-card on open. */
+.details-modal {
+  width: min(560px, calc(100vw - 40px));
+  max-height: min(80vh, 720px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.details-modal::backdrop { background: rgba(20, 18, 15, 0.55); }
+.details-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-raised);
+}
+.details-modal-header h3 { margin: 0; font-size: 15px; }
+#detailsModalClose {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+#detailsModalClose:hover { color: var(--text); }
+
+.card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  font-size: 12.5px;
+  overflow-y: auto;
+}
+.detail-row-head { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+.detail-label { color: var(--text-dim); }
+.detail-ev {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--chip-official-bg);
+  color: var(--chip-official-text);
+}
+.detail-ev.ev-thread { background: var(--chip-thread-bg); color: var(--chip-thread-text); }
+.detail-ev.ev-editorial { background: var(--chip-editorial-bg); color: var(--chip-editorial-text); }
+.detail-source { color: var(--text-dim); font-size: 11.5px; }
+.detail-basis { color: var(--text-dim); font-size: 11.5px; font-style: italic; }
 
 .card-footer {
   margin-top: auto;
