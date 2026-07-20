@@ -1388,7 +1388,7 @@ adjacent:
       - {name: Apple containerization example, url: "https://github.com/apple/containerization/tree/main/examples"}
       - {name: devcontainers, url: "https://containers.dev/"}
       - {name: hardening primitives (AppArmor, bwrap, libseccomp, gVisor, Firecracker), url: null}
-
+      - {name: FreeBSD jails, url: "https://docs.freebsd.org/en/books/handbook/jails/"}
   - id: wasm_substrates
     name: WASM runtimes as alternative substrate
     role: pattern
