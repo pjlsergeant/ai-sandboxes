@@ -1002,7 +1002,7 @@ sandboxes:
   - id: byre
     name: byre
     default_source: byre_repo
-    tagline: "A comfortable, constrained container box around any project folder — \"--dangerously-skip-permissions, without risking the farm.\""
+    tagline: "Your favourite skills and creature comforts in a constrained agent environment around any folder"
     urls: {repo: "https://github.com/pjlsergeant/byre", docs: "https://getbyre.com/docs"}
     license: MIT
     maturity:
