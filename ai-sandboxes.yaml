@@ -49,11 +49,23 @@
 # anywhere" — Anthropic's separate Trust Center does document an actual
 # SOC 2 Type II report and ISO 27001 certificate at the company level; the
 # two sandboxing/containment posts just don't discuss it.
+#
+# v0.2.5 change: closed the agents_supported and platforms taxonomies. Both
+# were free text — 31 distinct agent ids and 16 platform ids across the
+# sandboxes, full of near-duplicates (claude/claude_code/claude_code_cited;
+# gemini/gemini_cli; macos/macos_cloud/macos_apple_silicon; wsl/windows_wsl2)
+# that made the site's facet filters noisy rather than useful. Added closed
+# `taxonomy.agents_supported` (21 ids) and `taxonomy.platforms` (11 ids) lists
+# and migrated every sandbox entry onto them. Nowhere was data silently
+# dropped: any nuance an old id used to carry alone (virtdev's
+# claude_code_cited meaning "mentioned in passing, not a real integration";
+# instavm_coderunner's macos_apple_silicon meaning "Apple Silicon only, not
+# Intel") now lives explicitly in that field's basis text instead.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.4"
+  version: "0.2.5"
   generated: "2026-07-14"
   updated: "2026-07-20"
   primary_thread:
@@ -159,6 +171,56 @@ taxonomy:
     - {id: product_feature, label: Bundled feature of a paid product}
     - {id: unspecified, label: Unspecified in primary sources}
 
+  # Closed v0.2.5 -- previously free text (31 distinct ids for agents, 16 for
+  # platforms, full of near-duplicates like claude/claude_code/claude_code_cited
+  # or macos/macos_cloud/macos_apple_silicon). Every entry's agents_supported
+  # and platforms values now resolve to one of these ids; any nuance an old id
+  # used to carry alone (e.g. "cited as an example, not a first-class
+  # integration") now lives in that field's basis text instead.
+  agents_supported:
+    - {id: claude_code, label: Claude Code}
+    - {id: codex, label: Codex CLI}
+    - {id: gemini_cli, label: Gemini CLI}
+    - {id: copilot, label: GitHub Copilot}
+    - {id: cursor, label: Cursor}
+    - {id: aider, label: Aider}
+    - {id: opencode, label: OpenCode}
+    - {id: pi, label: Pi}
+    - {id: qwen_code, label: Qwen Code}
+    - {id: grok, label: Grok}
+    - {id: goose, label: Goose}
+    - {id: antigravity, label: Antigravity}
+    - {id: openclaw, label: OpenClaw}
+    - {id: hermes, label: Hermes}
+    - {id: reasonix, label: Reasonix}
+    - {id: kimi_code, label: Kimi Code}
+    - {id: shelley, label: Shelley (web agent)}
+    - {id: moltbot, label: Moltbot (Clawdbot)}
+    - {id: mcp_orchestrated, label: MCP-orchestrated agents (generic), description: Named as supporting agents driven via MCP rather than a specific product.}
+    - {id: generic_command_execution, label: Generic command execution, description: Runs arbitrary shell commands; not tied to any named agent.}
+    - {id: agent_agnostic, label: Any agent (agent-agnostic), description: "Stated to work with whatever agent you point at it, without naming specific ones."}
+
+  # Platforms conflates host OS with access method by design of the source
+  # data (e.g. exe.dev and Fly Sprites are fully remote, so "platform" means
+  # how you reach them, not an OS) -- rather than force a schema split, this
+  # stays one closed list, disambiguated by label. Hosting/locus (local vs.
+  # vendor-cloud) is already classification.execution_locus's job, so the old
+  # macos_cloud/linux_cloud/arch_linux_host/macos_apple_silicon ids collapse
+  # to their base OS here, with any real constraint (Arch specifically,
+  # Apple Silicon specifically) kept in that entry's platforms basis.
+  platforms:
+    - {id: macos, label: macOS}
+    - {id: linux, label: Linux}
+    - {id: windows_wsl2, label: Windows (WSL2)}
+    - {id: windows_powershell, label: Windows (native, PowerShell)}
+    - {id: cloud, label: Cloud (hosted execution mode)}
+    - {id: browser, label: Browser}
+    - {id: vscode, label: VS Code}
+    - {id: cli, label: CLI}
+    - {id: api, label: API}
+    - {id: sdk, label: SDK}
+    - {id: ssh, label: SSH}
+
 # -----------------------------------------------------------------------------
 # Sources registry — claims reference these by id via `src`.
 # -----------------------------------------------------------------------------
@@ -254,7 +316,7 @@ sandboxes:
     platforms:
       value: [macos, linux]
       basis: macOS first-class; Linux provider explicitly experimental.
-    agents_supported: [claude_code, codex, opencode, generic_shell]
+    agents_supported: [claude_code, codex, opencode, generic_command_execution]
     classification:
       role: runtime
       execution_locus: local
@@ -340,7 +402,7 @@ sandboxes:
     maturity: {value: experimental_active, src: gondolin_repo, basis: Self-described as experimental; @earendil-works/gondolin package at v0.12.0 as of mid-2026.}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
-    agents_supported: [generic_command_execution, pi_extension]
+    agents_supported: [generic_command_execution, pi]
     classification:
       role: runtime
       execution_locus: local
@@ -427,7 +489,7 @@ sandboxes:
     maturity: {value: public_beta}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [linux, macos, windows_wsl2]
-    agents_supported: [claude, codex, gemini_cli, aider, opencode, generic_shell]
+    agents_supported: [claude_code, codex, gemini_cli, aider, opencode, generic_command_execution]
     classification:
       role: runtime
       execution_locus: local
@@ -473,8 +535,10 @@ sandboxes:
     license: AGPL-3.0
     maturity: {value: active_personal_project}
     thread_status: {value: directly_linked, src: hn_thread}
-    platforms: {value: [arch_linux_host], basis: Requires an Arch Linux host.}
-    agents_supported: [agent_agnostic, claude_code_cited]
+    platforms: {value: [linux], basis: "Requires an Arch Linux host specifically, not just any Linux distro."}
+    agents_supported:
+      value: [agent_agnostic, claude_code]
+      basis: "Agent-agnostic in general; Claude Code is mentioned only as a passing example (\"wan is the usual working zone (package managers, Claude Code)\"), not documented as a first-class integration."
     classification:
       role: runtime
       execution_locus: local
@@ -518,7 +582,7 @@ sandboxes:
     thread_status: {value: mentioned_in_report_sources, src: hn_thread}
     platforms: [browser, ssh, vscode]
     agents_supported:
-      value: [claude_code, codex, pi, shelley_web_agent, agent_agnostic]
+      value: [claude_code, codex, pi, shelley, agent_agnostic]
       basis: Official Running Agents docs accessed 2026-07-14 state that Claude, Codex, Pi, and Shelley are preinstalled on newly created VMs; other agents can also be installed and run.
     classification:
       role: runtime
@@ -568,7 +632,9 @@ sandboxes:
     maturity: {value: new_official_product, basis: Docs described as work-in-progress early on.}
     thread_status: {value: mentioned_only, src: hn_thread}
     platforms: [api, cli, sdk]
-    agents_supported: [agent_agnostic, claude_code_examples, moltbot_examples]
+    agents_supported:
+      value: [agent_agnostic, claude_code, moltbot]
+      basis: "Agent-agnostic generally; Claude Code and Moltbot (Clawdbot) are documented via a dedicated reference-implementation repo and a blog post respectively, not confirmed preinstalled/first-class the way exe.dev documents its agents."
     classification:
       role: runtime
       execution_locus: vendor_cloud
@@ -619,7 +685,7 @@ sandboxes:
     maturity: {value: experimental, basis: README warns the project is experimental and not audited; many releases.}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
-    agents_supported: [claude_code, codex, pi, openclaw_platform]
+    agents_supported: [claude_code, codex, pi, openclaw]
     classification:
       role: runtime
       execution_locus: local
@@ -661,8 +727,10 @@ sandboxes:
     license: Apache-2.0
     maturity: {value: active_company_backed}
     thread_status: {value: directly_linked, src: hn_thread}
-    platforms: [macos_apple_silicon]
-    agents_supported: {value: [claude_code, ai_agents_generic], basis: Claude Code named explicitly; broader agent support stated without an exact engine list.}
+    platforms:
+      value: [macos]
+      basis: "Apple Silicon (M1/M2/M3/M4) specifically — the Apple container runtime requires it; Intel Macs are not supported."
+    agents_supported: {value: [claude_code, agent_agnostic], basis: "Claude Code named explicitly; broader agent support stated without an exact engine list."}
     classification:
       role: runtime
       execution_locus: local
@@ -707,7 +775,7 @@ sandboxes:
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
     agents_supported:
-      value: [claude_code, codex, kimi_code, gemini, antigravity, opencode, copilot, pi, agent_agnostic]
+      value: [claude_code, codex, kimi_code, gemini_cli, antigravity, opencode, copilot, pi, agent_agnostic]
       basis: First-class CLI shortcuts documented for Claude, Codex, Kimi Code, Gemini, Antigravity, OpenCode, Copilot, and Pi (Claude/Codex/Kimi Code get built-in yolobox guidance); shell/run cover other harnesses.
     classification:
       role: runtime
@@ -750,8 +818,8 @@ sandboxes:
     license: proprietary_service
     maturity: {value: beta, basis: Product page positions RDE as in beta with free trial / talk-to-us packaging.}
     thread_status: {value: directly_linked, src: hn_thread}
-    platforms: {value: [macos_cloud, linux_cloud], basis: macOS and Linux cloud environments on Bitrise CI stacks.}
-    agents_supported: {value: [claude_code, codex, gemini_cli, mcp_orchestrated_agents], basis: "Product page lists Claude Code, Codex, Gemini CLI, and MCP-orchestrated agents among supported tools."}
+    platforms: {value: [macos, linux], basis: "Vendor-hosted macOS and Linux cloud environments on Bitrise CI stacks — hosting model is already captured by classification.execution_locus: vendor_cloud; these ids denote OS only."}
+    agents_supported: {value: [claude_code, codex, gemini_cli, mcp_orchestrated], basis: "Product page lists Claude Code, Codex, Gemini CLI, and MCP-orchestrated agents among supported tools."}
     classification:
       role: remote_workspace
       execution_locus: vendor_cloud
@@ -895,7 +963,7 @@ sandboxes:
     license: product_feature
     maturity: {value: mature_product_docs}
     thread_status: {value: directly_linked, src: hn_thread}
-    platforms: {value: [macos, linux, wsl, windows_powershell, cloud], basis: "Seatbelt on macOS, Bubblewrap on Linux/WSL, native Windows sandbox on PowerShell; cloud tasks in isolated cloud environments."}
+    platforms: {value: [macos, linux, windows_wsl2, windows_powershell, cloud], basis: "Seatbelt on macOS, Bubblewrap on Linux/WSL, native Windows sandbox on PowerShell; cloud tasks in isolated cloud environments."}
     agents_supported: [codex]
     classification:
       role: runtime_feature
@@ -943,7 +1011,7 @@ sandboxes:
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [linux, macos]
     agents_supported:
-      value: [claude_code, codex, gemini, grok, opencode]
+      value: [claude_code, codex, gemini_cli, grok, opencode]
       basis: Bundled agent skills ship for Claude Code, Codex, Gemini, Grok, and OpenCode.
     classification:
       role: runtime
@@ -1055,7 +1123,7 @@ sandboxes:
       value: [macos, linux, windows_wsl2]
       basis: Explicitly supports macOS, Linux (Debian/Ubuntu, Fedora, Arch, RHEL, openSUSE, Nix), and Windows via WSL2, with a documented WSL2 feature-compatibility matrix.
     agents_supported:
-      value: [claude_code, opencode, codex, antigravity, goose, openclaw, github_copilot, qwen_code, pi, hermes]
+      value: [claude_code, opencode, codex, antigravity, goose, openclaw, copilot, qwen_code, pi, hermes]
       src: nono_site
       basis: Site states it "sandboxes any terminal agent" and names these explicitly.
     classification:
@@ -1117,7 +1185,7 @@ sandboxes:
       value: [macos, linux, windows_wsl2]
       basis: "README states support for \"macOS or Linux (WSL, too!)\"; ships a native macOS helper app for an experimental monitoring mode."
     agents_supported:
-      value: [claude_code, codex, gemini_cli, qwen, opencode]
+      value: [claude_code, codex, gemini_cli, qwen_code, opencode]
       basis: Built-in agent images ship for claude, codex, gemini, qwen, and opencode via the default coder image; extensible to custom images.
     classification:
       role: policy_wrapper
