@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>please do not escape — AI agent sandboxes</title>
+  <meta name="description" content="A structured, evidence-carrying dataset of sandboxes and adjacent approaches for running AI coding agents with isolation, network control, or credential mediation.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%92%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">🔒</span>
+        <div>
+          <h1>please do not escape</h1>
+          <p class="tagline">AI agent sandboxes &amp; adjacent approaches — evidence-carrying, not vibes-carrying.</p>
+        </div>
+      </div>
+      <nav class="header-links">
+        <a href="https://github.com/pjlsergeant/ai-sandboxes" target="_blank" rel="noopener">View on GitHub</a>
+        <a href="https://github.com/pjlsergeant/ai-sandboxes/edit/main/ai-sandboxes.yaml" target="_blank" rel="noopener">Contribute an entry</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="status" class="status-banner" hidden></section>
+
+    <section class="controls" aria-label="Filters">
+      <div class="controls-row">
+        <input id="search" type="search" placeholder="Search name, tagline, limitations…" aria-label="Search">
+        <label class="toggle">
+          <input type="checkbox" id="officialOnly">
+          <span>Official claims only</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="showAdjacent">
+          <span>Include adjacent tools &amp; patterns</span>
+        </label>
+      </div>
+      <div id="facets" class="facets"></div>
+      <div class="controls-footer">
+        <span id="resultCount" class="result-count"></span>
+        <button id="clearFilters" class="link-btn" type="button">Clear filters</button>
+      </div>
+    </section>
+
+    <section id="cards" class="cards" aria-live="polite"></section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>
+        Data lives in <a href="https://github.com/pjlsergeant/ai-sandboxes" target="_blank" rel="noopener">github.com/pjlsergeant/ai-sandboxes</a> —
+        every claim traces to a primary source; PRs to correct or add entries are welcome.
+      </p>
+      <p class="footer-plug">
+        Built by the same person behind <a href="https://github.com/pjlsergeant/byre" target="_blank" rel="noopener">byre</a> —
+        a comfortable, constrained container box for coding agents. If any of the tools on this page feel like overkill
+        for your day-to-day, byre might be the right amount of fence.
+      </p>
+    </div>
+  </footer>
+
+  <template id="cardTemplate">
+    <article class="card">
+      <header class="card-header">
+        <h3 class="card-title"></h3>
+        <span class="card-role"></span>
+      </header>
+      <p class="card-tagline"></p>
+      <div class="card-badges"></div>
+      <dl class="card-facts"></dl>
+      <div class="card-limitations"></div>
+      <footer class="card-footer">
+        <span class="card-license"></span>
+        <span class="card-links"></span>
+      </footer>
+    </article>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
