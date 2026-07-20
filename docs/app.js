@@ -7,30 +7,66 @@ const FALLBACK_URL = "../ai-sandboxes.yaml"; // works if this page happens to be
 const state = {
   data: null,
   filters: {
-    isolation_boundary: new Set(),
+    threat_tier: new Set(),
     execution_locus: new Set(),
-    network_policy: new Set(),
-    credential_mediation: new Set(),
-    pricing_model: new Set(),
-    role: new Set(),
-    agents_supported: new Set(),
-    platforms: new Set(),
+    license_bucket: new Set(),
   },
-  search: "",
-  officialOnly: false,
-  showAdjacent: false,
 };
 
-const FACET_DEFS = [
-  { key: "role", label: "Role", getter: (e) => single(getRole(e)), taxonomy: "product_role" },
-  { key: "isolation_boundary", label: "Isolation boundary", getter: (e) => single(get(e, "classification.isolation_boundary")), taxonomy: "isolation_boundary" },
-  { key: "execution_locus", label: "Where it runs", getter: (e) => single(get(e, "classification.execution_locus")), taxonomy: "execution_locus" },
-  { key: "network_policy", label: "Network policy", getter: (e) => single(get(e, "classification.network_policy")), taxonomy: "network_policy" },
-  { key: "credential_mediation", label: "Credential mediation", getter: (e) => single(get(e, "classification.credential_mediation")), taxonomy: "credential_mediation" },
-  { key: "pricing_model", label: "Pricing", getter: (e) => single(get(e, "pricing.model")), taxonomy: "pricing_model" },
-  { key: "agents_supported", label: "Agents supported", getter: (e) => list(get(e, "agents_supported")), taxonomy: null },
-  { key: "platforms", label: "Platforms", getter: (e) => list(get(e, "platforms")), taxonomy: null },
+// The three upfront questions (adapted from the dataset's own
+// `ui.decision_funnel` — "what are you afraid of" / "where must code run"
+// are its two highest-signal questions) plus a license/pricing pick. This is
+// the entire filter UI: no separate "advanced" tier of raw taxonomy facets —
+// isolation boundary, network policy, credential mediation etc. are still
+// shown as badges/facts on every card, just not filterable, since a facet
+// wall for 7+ dimensions (2 of them 20+ values even deduped) was worse than
+// just reading the cards.
+const QUICKSTART_DEFS = [
+  {
+    key: "threat_tier",
+    heading: "What are you worried about?",
+    getter: (e) => list(get(e, "risk.assessed_tiers")),
+    taxonomy: "threat_tier",
+    // A sliding scale (accidents -> exfiltration -> hostile escape), not
+    // independent categories, so only one applies at a time.
+    singleSelect: true,
+  },
+  {
+    key: "execution_locus",
+    heading: "Where should it run?",
+    getter: (e) => single(get(e, "classification.execution_locus")),
+    taxonomy: "execution_locus",
+  },
+  {
+    key: "license_bucket",
+    heading: "Open-source, or a product?",
+    // Buckets the `license` field's 3 real values in this dataset (a real
+    // OSS license, "product_feature", or "proprietary_service") rather than
+    // pricing — pricing has an awkward misfit (Fly Sprites' pure usage-based
+    // metering isn't free, subscription, or enterprise); license doesn't.
+    getter: (e) => {
+      const lic = single(get(e, "license"))[0];
+      if (!lic) return [];
+      if (lic === "product_feature") return ["product_feature"];
+      if (lic === "proprietary_service") return ["product"];
+      return ["open_source"];
+    },
+    order: ["open_source", "product_feature", "product"],
+    labels: { open_source: "Open-source", product_feature: "Product feature", product: "Product" },
+  },
 ];
+
+// Pre-checked on load: the two most common starting questions — "I'm mostly
+// worried about accidents" and "it should run on my own machine". Adjacent
+// tools & DIY patterns mostly lack these fields entirely, so this also has
+// the effect of quietly focusing the default view on principal sandboxes;
+// the "adjacent tools & patterns" checkbox clears both to widen it back out.
+const DEFAULT_QUICKSTART = { threat_tier: "t1_accidents", execution_locus: "local" };
+
+function applyDefaultQuickstart() {
+  state.filters.threat_tier = new Set([DEFAULT_QUICKSTART.threat_tier]);
+  state.filters.execution_locus = new Set([DEFAULT_QUICKSTART.execution_locus]);
+}
 
 init();
 
@@ -39,6 +75,7 @@ async function init() {
   try {
     const text = await fetchYaml();
     state.data = jsyaml.load(text);
+    applyDefaultQuickstart();
     renderFacets();
     renderCards();
   } catch (err) {
@@ -112,6 +149,37 @@ function humanize(id) {
   return String(id).replace(/_/g, " ");
 }
 
+// The single most appropriate page to send someone to, in priority order —
+// dedicated docs first, then the official site, then source, then whatever
+// write-up exists; pricing is never a good first stop.
+const PRIMARY_URL_PRIORITY = [
+  ["docs", "Read the docs"],
+  ["official", "Visit site"],
+  ["repo", "View repo"],
+  ["engineering", "Read the writeup"],
+  ["security", "Read the security docs"],
+  ["blog", "Read the blog post"],
+  ["related_blog", "Read the blog post"],
+  ["containment", "Read the writeup"],
+];
+// Per-entry override of which url key wins as primary, for cases where the
+// default priority order picks the "correct" but not most-wanted page —
+// byre's docs site is real, but this dataset points people at the repo.
+const PRIMARY_URL_OVERRIDE = { byre: "repo" };
+
+function pickPrimaryUrl(urls, entryId) {
+  const overrideKey = PRIMARY_URL_OVERRIDE[entryId];
+  if (overrideKey && urls[overrideKey]) {
+    const entry = PRIMARY_URL_PRIORITY.find(([key]) => key === overrideKey);
+    return { url: urls[overrideKey], label: entry ? entry[1] : "Visit" };
+  }
+  for (const [key, label] of PRIMARY_URL_PRIORITY) {
+    if (urls[key]) return { url: urls[key], label };
+  }
+  const first = Object.entries(urls).find(([, v]) => v);
+  return first ? { url: first[1], label: `Visit (${humanize(first[0])})` } : null;
+}
+
 function taxonomyLabel(data, taxonomyKey, id) {
   if (!taxonomyKey) return humanize(id);
   const entries = data.taxonomy[taxonomyKey];
@@ -120,44 +188,87 @@ function taxonomyLabel(data, taxonomyKey, id) {
   return match ? match.label : humanize(id);
 }
 
+function taxonomyDescription(data, taxonomyKey, id) {
+  if (!taxonomyKey) return null;
+  const entries = data.taxonomy[taxonomyKey];
+  const match = entries && entries.find((e) => e.id === id);
+  return match ? match.description || null : null;
+}
+
 // ---- facets -------------------------------------------------------------
 
-function renderFacets() {
-  const container = document.getElementById("facets");
-  container.innerHTML = "";
-  for (const facet of FACET_DEFS) {
-    const values = new Set();
-    for (const entry of allEntries()) {
-      for (const v of facet.getter(entry)) values.add(v);
+function makeChip(facet, val) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "facet-chip";
+  btn.textContent = facet.labels ? facet.labels[val] : taxonomyLabel(state.data, facet.taxonomy, val);
+  const desc = facet.labels ? null : taxonomyDescription(state.data, facet.taxonomy, val);
+  if (desc) btn.title = desc;
+  btn.dataset.facet = facet.key;
+  btn.dataset.value = val;
+  if (state.filters[facet.key].has(val)) btn.classList.add("active");
+  btn.addEventListener("click", () => {
+    const set = state.filters[facet.key];
+    if (facet.singleSelect) {
+      const wasActive = set.has(val);
+      set.clear();
+      btn.parentElement.querySelectorAll(".facet-chip.active").forEach((el) => el.classList.remove("active"));
+      if (!wasActive) {
+        set.add(val);
+        btn.classList.add("active");
+      }
+    } else {
+      set.has(val) ? set.delete(val) : set.add(val);
+      btn.classList.toggle("active");
     }
-    if (values.size === 0) continue;
+    renderCards();
+  });
+  return btn;
+}
 
-    const group = document.createElement("div");
-    group.className = "facet-group";
+// Taxonomy-backed facets render in the taxonomy's own declared order (it's
+// already meaningful — weakest-to-strongest, local-first, etc.) rather than
+// alphabetically; license_bucket has its own explicit `order` instead since
+// it isn't a real taxonomy, just a display bucketing of the `license` field.
+function valuesFor(facet) {
+  const present = new Set();
+  for (const entry of allEntries()) {
+    for (const v of facet.getter(entry)) present.add(v);
+  }
+  if (facet.order) {
+    return facet.order.filter((id) => present.has(id));
+  }
+  if (facet.taxonomy && state.data.taxonomy[facet.taxonomy]) {
+    return state.data.taxonomy[facet.taxonomy]
+      .map((t) => t.id)
+      .filter((id) => present.has(id));
+  }
+  return [...present].sort();
+}
+
+function renderQuickstart() {
+  const container = document.getElementById("quickstart");
+  container.innerHTML = "";
+  for (const facet of QUICKSTART_DEFS) {
+    const values = valuesFor(facet);
+    if (values.length === 0) continue;
+
+    const row = document.createElement("div");
+    row.className = "quickstart-row";
     const h4 = document.createElement("h4");
-    h4.textContent = facet.label;
-    group.appendChild(h4);
+    h4.textContent = facet.heading;
+    row.appendChild(h4);
 
     const chips = document.createElement("div");
     chips.className = "facet-chips";
-    [...values].sort().forEach((val) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "facet-chip";
-      btn.textContent = taxonomyLabel(state.data, facet.taxonomy, val);
-      btn.dataset.facet = facet.key;
-      btn.dataset.value = val;
-      btn.addEventListener("click", () => {
-        const set = state.filters[facet.key];
-        set.has(val) ? set.delete(val) : set.add(val);
-        btn.classList.toggle("active");
-        renderCards();
-      });
-      chips.appendChild(btn);
-    });
-    group.appendChild(chips);
-    container.appendChild(group);
+    values.forEach((val) => chips.appendChild(makeChip(facet, val)));
+    row.appendChild(chips);
+    container.appendChild(row);
   }
+}
+
+function renderFacets() {
+  renderQuickstart();
 }
 
 function allEntries() {
@@ -167,23 +278,11 @@ function allEntries() {
 // ---- filtering ------------------------------------------------------------
 
 function matchesFilters(entry) {
-  for (const facet of FACET_DEFS) {
+  for (const facet of QUICKSTART_DEFS) {
     const active = state.filters[facet.key];
     if (active.size === 0) continue;
     const values = facet.getter(entry);
     if (!values.some((v) => active.has(v))) return false;
-  }
-  if (state.search) {
-    const haystack = [
-      entry.name,
-      entry.tagline,
-      resolveClaim(entry.summary, entry)?.value,
-      ...(entry.limitations || []).map((l) => resolveClaim(l, entry)?.value),
-    ]
-      .filter(Boolean)
-      .join(" \n ")
-      .toLowerCase();
-    if (!haystack.includes(state.search)) return false;
   }
   return true;
 }
@@ -194,8 +293,15 @@ function renderCards() {
   const container = document.getElementById("cards");
   container.innerHTML = "";
 
-  const pool = state.showAdjacent ? allEntries() : state.data.sandboxes;
+  const pool = allEntries();
   const results = pool.filter(matchesFilters);
+
+  // Pin byre to the top, glowing, when (and only when) it's honestly part of
+  // the current result set — we don't force it into results that don't
+  // match what was actually asked for, that would defeat the point of an
+  // evidence-carrying dataset. See the cheeky note rendered on its card.
+  const byreIdx = results.findIndex((e) => e.id === "byre");
+  if (byreIdx > 0) results.unshift(results.splice(byreIdx, 1)[0]);
 
   document.getElementById("resultCount").textContent =
     `${results.length} of ${pool.length} shown`;
@@ -229,15 +335,19 @@ function renderCard(entry, isAdjacent) {
   const card = node.querySelector(".card");
   card.classList.toggle("is-adjacent", isAdjacent);
 
-  const title = node.querySelector(".card-title");
-  title.textContent = entry.name;
-  if (entry.id === "byre") {
-    // Disclosed the same way the source README discloses it (see its
-    // "Shameless plug" section): this dataset's author also built byre.
-    const badge = document.createElement("span");
-    badge.className = "self-badge";
-    badge.textContent = "this dataset's author's project";
-    title.appendChild(badge);
+  // The primary link (the single most appropriate page for this entry) is
+  // used twice: the obvious title link, and the footer button.
+  const urls = entry.urls || {};
+  const primary = pickPrimaryUrl(urls, entry.id);
+  const titleLink = node.querySelector(".card-title-link");
+  titleLink.textContent = entry.name;
+  if (primary) {
+    titleLink.href = primary.url;
+    titleLink.target = "_blank";
+    titleLink.rel = "noopener";
+  } else {
+    // No urls at all for this entry: plain text title, no dangling link.
+    node.querySelector(".card-title").textContent = entry.name;
   }
 
   const roleClaim = resolveClaim(getRole(entry), entry);
@@ -247,6 +357,15 @@ function renderCard(entry, isAdjacent) {
 
   const taglineClaim = resolveClaim(entry.tagline ?? entry.summary, entry);
   node.querySelector(".card-tagline").textContent = taglineClaim ? taglineClaim.value : "";
+
+  if (entry.id === "byre") {
+    card.classList.add("is-byre");
+    const note = document.createElement("p");
+    note.className = "byre-note";
+    note.innerHTML =
+      "I wrote <a href=\"https://github.com/pjlsergeant/byre\" target=\"_blank\" rel=\"noopener\">byre</a>, so I think it's great, and that's why there's a box around it.";
+    node.querySelector(".card-header").insertAdjacentElement("afterend", note);
+  }
 
   // Badges: the four classification facets + pricing, when present.
   const badgesEl = node.querySelector(".card-badges");
@@ -260,24 +379,23 @@ function renderCard(entry, isAdjacent) {
     const raw = get(entry, path);
     if (raw === undefined) continue;
     const claim = resolveClaim(raw, entry);
-    if (state.officialOnly && claim.ev !== "official") continue;
     badgesEl.appendChild(chip(taxonomyLabel(state.data, taxonomyKey, claim.value), claim));
   }
 
   // Facts: maturity, license, platforms, agents supported, audience.
   const factsEl = node.querySelector(".card-facts");
   const facts = [
-    ["Maturity", entry.maturity],
-    ["License", entry.license],
-    ["Platforms", entry.platforms],
-    ["Agents", entry.agents_supported],
-    ["Audience", entry.audience],
+    ["Maturity", entry.maturity, null],
+    ["License", entry.license, null],
+    ["Platforms", entry.platforms, "platforms"],
+    ["Agents", entry.agents_supported, "agents_supported"],
+    ["Audience", entry.audience, null],
   ];
-  for (const [label, raw] of facts) {
+  for (const [label, raw, taxonomyKey] of facts) {
     if (raw === undefined) continue;
     const claim = resolveClaim(raw, entry);
-    if (state.officialOnly && claim.ev !== "official") continue;
-    const value = Array.isArray(claim.value) ? claim.value.map(humanize).join(", ") : humanize(claim.value);
+    const labelFor = (v) => taxonomyLabel(state.data, taxonomyKey, v);
+    const value = Array.isArray(claim.value) ? claim.value.map(labelFor).join(", ") : labelFor(claim.value);
     if (!value) continue;
     const dt = document.createElement("dt");
     dt.textContent = label;
@@ -290,9 +408,7 @@ function renderCard(entry, isAdjacent) {
 
   // Limitations (or, for adjacent entries, the risk basis) as a short list.
   const limsEl = node.querySelector(".card-limitations");
-  const limitations = (entry.limitations || [])
-    .map((l) => resolveClaim(l, entry))
-    .filter((c) => c && (!state.officialOnly || c.ev === "official"));
+  const limitations = (entry.limitations || []).map((l) => resolveClaim(l, entry)).filter(Boolean);
   if (limitations.length) {
     const ul = document.createElement("ul");
     for (const c of limitations) {
@@ -306,12 +422,21 @@ function renderCard(entry, isAdjacent) {
     limsEl.remove();
   }
 
-  // Footer: license text + links (repo/docs URLs + primary source).
-  node.querySelector(".card-license").textContent = "";
+  // Footer: the same primary link again as an obvious button, plus the rest
+  // as smaller secondary links.
+  const primaryEl = node.querySelector(".card-primary-link");
+  if (primary) {
+    primaryEl.href = primary.url;
+    primaryEl.target = "_blank";
+    primaryEl.rel = "noopener";
+    primaryEl.textContent = `${primary.label} →`;
+  } else {
+    primaryEl.remove();
+  }
+
   const linksEl = node.querySelector(".card-links");
-  const urls = entry.urls || {};
   for (const [label, url] of Object.entries(urls)) {
-    if (!url) continue;
+    if (!url || (primary && url === primary.url)) continue;
     const a = document.createElement("a");
     a.href = url;
     a.target = "_blank";
@@ -320,7 +445,7 @@ function renderCard(entry, isAdjacent) {
     linksEl.appendChild(a);
   }
   const src = state.data.sources[entry.default_source];
-  if (src && src.url && !Object.values(urls).includes(src.url)) {
+  if (src && src.url && !Object.values(urls).includes(src.url) && (!primary || src.url !== primary.url)) {
     const a = document.createElement("a");
     a.href = src.url;
     a.target = "_blank";
@@ -335,24 +460,30 @@ function renderCard(entry, isAdjacent) {
 // ---- static controls --------------------------------------------------
 
 function bindStaticControls() {
-  document.getElementById("search").addEventListener("input", (e) => {
-    state.search = e.target.value.trim().toLowerCase();
-    renderCards();
-  });
-  document.getElementById("officialOnly").addEventListener("change", (e) => {
-    state.officialOnly = e.target.checked;
+  document.getElementById("clearFilters").addEventListener("click", () => {
+    // "Clear filters" means "back to how the page loaded": defaults
+    // restored, not everything wiped blank — a true blank slate is what
+    // the checkbox above is for.
+    document.getElementById("showAdjacent").checked = false;
+    document.getElementById("quickstart").hidden = false;
+    state.filters.license_bucket.clear();
+    applyDefaultQuickstart();
+    renderQuickstart();
     renderCards();
   });
   document.getElementById("showAdjacent").addEventListener("change", (e) => {
-    state.showAdjacent = e.target.checked;
-    renderFacets();
-    renderCards();
-  });
-  document.getElementById("clearFilters").addEventListener("click", () => {
-    for (const set of Object.values(state.filters)) set.clear();
-    state.search = "";
-    document.getElementById("search").value = "";
-    document.querySelectorAll(".facet-chip.active").forEach((el) => el.classList.remove("active"));
+    // This isn't "clear a couple of filters" — adjacent tools & DIY patterns
+    // are a genuinely different kind of thing (non-product approaches, not
+    // sandboxes with a threat model / execution locus / license), so the
+    // quickstart questions themselves don't apply and are hidden, not just
+    // reset to empty.
+    document.getElementById("quickstart").hidden = e.target.checked;
+    if (e.target.checked) {
+      for (const def of QUICKSTART_DEFS) state.filters[def.key].clear();
+    } else {
+      applyDefaultQuickstart();
+    }
+    renderQuickstart();
     renderCards();
   });
 }
