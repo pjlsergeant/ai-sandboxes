@@ -15,11 +15,45 @@
 # v0.2.2 change: added nono.sh and strongdm/leash (2026-07-20), both sourced
 # from a user-submitted recommendation (private email) rather than the HN
 # thread — see their thread_status fields.
+#
+# v0.2.3 change: full primary-source re-audit (2026-07-20), fanned out across
+# parallel research agents plus an independent codex CLI cross-check (grok
+# unavailable — not authenticated in this box). Fixes: added agents shipped
+# since the last audit (clawk: opencode; flar, yolobox: kimi_code; agentjail
+# version bump to v0.9.0 + Monitor Mode); fixed a dead instavm_coderunner blog
+# link; upgraded exe_dev.credential_mediation from unspecified to
+# managed_integration (Integrations docs); noted the sprites.dev -> fly.io/
+# sprites redirect; corrected claude_code_sandbox's maturity (no longer beta —
+# that label now belongs to a separate @anthropic-ai/sandbox-runtime package),
+# added missing windows_wsl2 platform, replaced an unsupported os_keyring
+# credential_mediation claim with the actual ambient/deny/mask mechanism, and
+# corrected an overclaimed compliance field (ISO/IEC 42001 is aspirational
+# only, no active certifications); replaced codex_sandbox's same unsupported
+# os_keyring claim with unspecified; resolved nono's network-default hedge and
+# noted its --env-credential fallback mode; corrected nix_opencode_with_mitm's
+# overclaimed token-injection feature (aspirational in the source, not
+# shipped); re-sourced wasm_substrates' container2wasm link to its own repo.
+# Also fixed a pre-existing, dataset-wide YAML correctness bug: 23 inline
+# flow-mapping values contained an unquoted comma, which any standards-
+# compliant YAML parser (confirmed via Python's PyYAML, not just this repo's
+# lenient yq) silently splits into a truncated string plus a bogus null-valued
+# key — corrupting data for any real consumer, not just a display quirk.
+# Quoted every affected value; verified zero remain via an automated scan.
+#
+# v0.2.4 change: grok CLI came back online after v0.2.3 shipped, so it ran
+# the same 5-question second opinion pass codex had already done for
+# claude_code_sandbox/codex_sandbox. All 5 answers matched codex and this
+# dataset's edits. One refinement from grok's answer: reworded
+# claude_code_sandbox.compliance so it's scoped to what the two cited
+# engineering posts say, not read as "Anthropic holds no certifications
+# anywhere" — Anthropic's separate Trust Center does document an actual
+# SOC 2 Type II report and ISO 27001 certificate at the company level; the
+# two sandboxing/containment posts just don't discuss it.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.2"
+  version: "0.2.4"
   generated: "2026-07-14"
   updated: "2026-07-20"
   primary_thread:
@@ -111,7 +145,7 @@ taxonomy:
       description: Malicious code attempts to break the boundary; hypervisor-class isolation is the broadly credible answer.
 
   design_intent:
-    - {id: constrain, label: Constrain the agent, description: Check, gate, or block agent actions.}
+    - {id: constrain, label: Constrain the agent, description: "Check, gate, or block agent actions."}
     - {id: liberate, label: Liberate the agent, description: Build a wall so the agent can run unsupervised inside it.}
     - {id: both, label: Both / configurable}
 
@@ -144,7 +178,7 @@ sources:
   sprites_docs:         {url: "https://docs.sprites.dev/", title: "Fly.io Sprites docs"}
   agentcage_repo:       {url: "https://github.com/agentcage/agentcage", title: "agentcage README"}
   coderunner_repo:      {url: "https://github.com/instavm/coderunner", title: "InstaVM CodeRunner README"}
-  instavm_blog:         {url: "https://instavm.io/blog/nixos-reproducible-dev-environments", title: "InstaVM NixOS sandboxes (blog)"}
+  instavm_blog:         {url: "https://instavm.io/blog/nixos-reproducible-dev-environments-on-instavm", title: "InstaVM NixOS sandboxes (blog)"}
   yolobox_repo:         {url: "https://github.com/finbarr/yolobox", title: "yolobox README & security model"}
   bitrise_rde:          {url: "https://bitrise.io/platform/remote-dev-environments", title: "Bitrise RDE product page & docs"}
   codespaces_docs:      {url: "https://github.com/features/codespaces", title: "GitHub Codespaces docs"}
@@ -165,6 +199,10 @@ sources:
   nono_docs:            {url: "https://nono.sh/docs/llms.txt", title: "nono docs (llms.txt)"}
   leash_repo:           {url: "https://github.com/strongdm/leash", title: "Leash (strongDM) README"}
   leash_disclaimer:     {url: "https://raw.githubusercontent.com/strongdm/leash/main/DISCLAIMER.txt", title: "Leash DISCLAIMER.txt"}
+  claude_code_sandbox_docs: {url: "https://code.claude.com/docs/en/sandboxing", title: "Claude Code docs: Configure the sandboxed Bash tool (post-migration canonical doc)"}
+  claude_code_security_docs: {url: "https://code.claude.com/docs/en/security", title: "Claude Code docs: Security"}
+  anthropic_trust_center: {url: "https://trust.anthropic.com", title: "Anthropic Trust Center"}
+  exe_dev_docs:         {url: "https://exe.dev/docs/integrations", title: "exe.dev docs: Integrations"}
   user_email_2026_07_20: {url: null, title: "User-submitted comparison, private email, 2026-07-20 (not part of the HN thread)"}
 
 # -----------------------------------------------------------------------------
@@ -216,7 +254,7 @@ sandboxes:
     platforms:
       value: [macos, linux]
       basis: macOS first-class; Linux provider explicitly experimental.
-    agents_supported: [claude_code, codex, generic_shell]
+    agents_supported: [claude_code, codex, opencode, generic_shell]
     classification:
       role: runtime
       execution_locus: local
@@ -255,7 +293,7 @@ sandboxes:
     tagline: Policy guardrails that check every agent tool call before it runs.
     urls: {repo: "https://github.com/LuD1161/agentjail"}
     license: Apache-2.0
-    maturity: {value: early_active, basis: v0.8.2 released July 2026; still pre-1.0 and shipping rapidly.}
+    maturity: {value: early_active, basis: "v0.9.0 released 2026-07-16 (Monitor Mode, verified attestation, control-plane auth between daemon/netproxy/secrets-broker); still pre-1.0 and shipping rapidly."}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
     agents_supported: [claude_code, codex, cursor]
@@ -286,7 +324,7 @@ sandboxes:
       basis: Documented architecture.
     convenience_notes:
       - {value: Stated goal includes reducing approval fatigue.}
-    integrations: [hooks, opa_policies, mcp_scan, daemon, net_proxy_opt_in, secrets_broker]
+    integrations: [hooks, opa_policies, mcp_scan, daemon, net_proxy_opt_in, secrets_broker, monitor_mode, control_plane_auth]
     audience: [individual_developer]
     limitations:
       - {value: Not a full VM.}
@@ -346,7 +384,7 @@ sandboxes:
     maturity: {value: very_early, basis: No published releases at fetch time, per its own README.}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [linux]
-    agents_supported: [claude_code, antigravity, codex, copilot, reasonix]
+    agents_supported: {value: [claude_code, antigravity, codex, copilot, reasonix, kimi_code], basis: "Kimi Code added via PR #3, merged 2026-07-17."}
     classification:
       role: runtime
       execution_locus: local
@@ -376,7 +414,7 @@ sandboxes:
     audience: [individual_developer]
     limitations:
       - {value: Linux-only.}
-      - {value: Far less tested, per its own README; no releases at fetch time.}
+      - {value: "Far less tested, per its own README; no releases at fetch time."}
       - {value: Agent's own credential token reachable by that agent.}
     compliance: {value: none_stated}
 
@@ -489,8 +527,9 @@ sandboxes:
       state_model: {value: persistent, basis: Persistent disks; disks backed up; stopped VMs keep their disk.}
       network_policy: {value: operator_managed, basis: VMs private by default; access via proxy/SSH; integrations govern reachability.}
       credential_mediation:
-        value: unspecified
-        basis: Marketing emphasizes private-by-default access and SSH; network-level secret injection was not confirmed in fetched product pages.
+        value: managed_integration
+        src: exe_dev_docs
+        basis: "Integrations docs describe network-level secret injection that keeps tokens off the VM: GitHub Integration avoids VM-side tokens, AWS/GCP Workload Identity Federation issues short-lived OIDC credentials rather than placing access keys on the VM, and an LLM Gateway removes the need for API keys on the VM."
     risk:
       stated_scope:
         value: [t1_accidents, t3_hostile_escape]
@@ -499,7 +538,7 @@ sandboxes:
         value: [t1_accidents, t3_hostile_escape]
         ev: editorial
         derived_from: [classification.isolation_boundary, classification.credential_mediation]
-        basis: Full VM boundary is credible for accidents and hostile escape; exfiltration tier left unasserted without documented credential mediation or egress policy details; vendor sits inside the trust boundary.
+        basis: "Full VM boundary is credible for accidents and hostile escape; exfiltration tier remains unassessed by default because Integrations-mediated credentials (GitHub, AWS/GCP WIF, LLM Gateway) only cover secrets routed through those specific connectors, general VM egress has no documented allowlist/policy, and the vendor sits inside the trust boundary."
       design_intent:
         value: liberate
         ev: editorial
@@ -512,7 +551,7 @@ sandboxes:
       value: Runs on vendor hardware; local footprint is zero, cost is monetary.
       basis: Managed-service model.
     convenience_notes:
-      - {value: Maintained images; VS Code, regions, GitHub and proxy integrations.}
+      - {value: "Maintained images; VS Code, regions, GitHub and proxy integrations."}
     integrations: [ssh_api, https_api, github, http_proxy, llm_integrations, reflection, regions, vscode, agent_skill]
     audience: [individual_developer, small_team]
     limitations:
@@ -568,6 +607,7 @@ sandboxes:
       - {value: Managed service only.}
       - {value: Outbound unrestricted until an egress policy is applied.}
       - {value: Operational limits and region selection still evolving.}
+      - {value: "https://sprites.dev/ now 301-redirects to https://fly.io/sprites (product fully absorbed into Fly.io's own branding); docs.sprites.dev is unaffected and remains independent.", ev: editorial, basis: Observed 2026-07-20.}
     compliance: {value: none_stated_in_fetched_docs}
 
   - id: agentcage
@@ -617,7 +657,7 @@ sandboxes:
     name: InstaVM CodeRunner
     default_source: coderunner_repo
     tagline: Local Apple-container sandbox for AI agents on Apple Silicon, with a cloud path.
-    urls: {repo: "https://github.com/instavm/coderunner", related_blog: "https://instavm.io/blog/nixos-reproducible-dev-environments"}
+    urls: {repo: "https://github.com/instavm/coderunner", related_blog: "https://instavm.io/blog/nixos-reproducible-dev-environments-on-instavm"}
     license: Apache-2.0
     maturity: {value: active_company_backed}
     thread_status: {value: directly_linked, src: hn_thread}
@@ -667,15 +707,15 @@ sandboxes:
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [macos, linux]
     agents_supported:
-      value: [claude_code, codex, gemini, antigravity, opencode, copilot, pi, agent_agnostic]
-      basis: First-class CLI shortcuts documented for Claude, Codex, Gemini, Antigravity, OpenCode, Copilot, and Pi; shell/run cover other harnesses.
+      value: [claude_code, codex, kimi_code, gemini, antigravity, opencode, copilot, pi, agent_agnostic]
+      basis: First-class CLI shortcuts documented for Claude, Codex, Kimi Code, Gemini, Antigravity, OpenCode, Copilot, and Pi (Claude/Codex/Kimi Code get built-in yolobox guidance); shell/run cover other harnesses.
     classification:
       role: runtime
       execution_locus: local
       isolation_boundary: {value: container, basis: Container-based; agent gets sudo inside the container.}
       state_model: {value: persistent, basis: Named volumes preserve setup across sessions.}
       network_policy: {value: open, basis: Open network by default; --no-network available per command.}
-      credential_mediation: {value: mounted, basis: Passed-in secrets are exposed to the agent, per its own security notes.}
+      credential_mediation: {value: mounted, basis: "Passed-in secrets are exposed to the agent, per its own security notes."}
     risk:
       stated_scope:
         value: [t1_accidents]
@@ -711,7 +751,7 @@ sandboxes:
     maturity: {value: beta, basis: Product page positions RDE as in beta with free trial / talk-to-us packaging.}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: {value: [macos_cloud, linux_cloud], basis: macOS and Linux cloud environments on Bitrise CI stacks.}
-    agents_supported: {value: [claude_code, codex, gemini_cli, mcp_orchestrated_agents], basis: Product page lists Claude Code, Codex, Gemini CLI, and MCP-orchestrated agents among supported tools.}
+    agents_supported: {value: [claude_code, codex, gemini_cli, mcp_orchestrated_agents], basis: "Product page lists Claude Code, Codex, Gemini CLI, and MCP-orchestrated agents among supported tools."}
     classification:
       role: remote_workspace
       execution_locus: vendor_cloud
@@ -786,32 +826,37 @@ sandboxes:
       value: Vendor hardware; prebuilds shorten startup at extra cost.
       basis: Codespaces docs.
     convenience_notes:
-      - {value: Devcontainer features, prebuilds, browser and VS Code access.}
+      - {value: "Devcontainer features, prebuilds, browser and VS Code access."}
     integrations: [rest_api, vscode, browser, devcontainer_features, prebuilds, octokit]
     audience: [individual_developer, team, enterprise]
     limitations:
       - {value: Not self-hostable.}
       - {value: Outbound internet allowed by default.}
-      - {value: Isolation is dev-environment-grade, not agent-specific safety control., ev: editorial, derived_from: [classification.network_policy, classification.credential_mediation], basis: No egress policy or credential mediation aimed at agent threat models.}
+      - {value: "Isolation is dev-environment-grade, not agent-specific safety control.", ev: editorial, derived_from: [classification.network_policy, classification.credential_mediation], basis: "No egress policy or credential mediation aimed at agent threat models."}
     compliance: {value: inherits_github_enterprise_posture}
 
   - id: claude_code_sandbox
     name: Claude Code sandbox
-    default_source: anthropic_sandboxing
+    default_source: claude_code_sandbox_docs
     tagline: OS-native sandboxing built into Claude Code for safer autonomy with fewer prompts.
-    urls: {engineering: "https://www.anthropic.com/engineering/claude-code-sandboxing", containment: "https://www.anthropic.com/engineering/how-we-contain-claude"}
+    urls: {docs: "https://code.claude.com/docs/en/sandboxing", engineering: "https://www.anthropic.com/engineering/claude-code-sandboxing", containment: "https://www.anthropic.com/engineering/how-we-contain-claude"}
     license: product_feature
-    maturity: {value: beta_research_preview, basis: Sandboxed bash described as beta / research preview.}
+    maturity:
+      value: mature_no_beta_label
+      ev: editorial
+      basis: "As of 2026-07-20, the current canonical docs (code.claude.com/docs/en/sandboxing) no longer label the built-in sandboxed Bash tool beta or research preview; that label now applies only to the separate, standalone @anthropic-ai/sandbox-runtime package (which wraps the whole Claude Code process, not just Bash). The 2026 engineering post's beta wording described that earlier, narrower rollout. Anthropic does not explicitly call the built-in tool GA either — this is an absence of a beta label, not a confirmed GA announcement. Cross-checked independently via codex CLI, which reached the same conclusion."
     thread_status: {value: directly_linked, src: hn_thread}
-    platforms: {value: [macos, linux], basis: Seatbelt on macOS, Bubblewrap on Linux.}
+    platforms: {value: [macos, linux, windows_wsl2], basis: "Seatbelt on macOS; Bubblewrap on both Linux and WSL2. WSL1 and native Windows are not supported."}
     agents_supported: [claude_code]
     classification:
       role: runtime_feature
       execution_locus: local
-      isolation_boundary: {value: os_sandbox, basis: OS-native filesystem and network sandboxing — Seatbelt on macOS, Bubblewrap on Linux.}
+      isolation_boundary: {value: os_sandbox, basis: "OS-native filesystem and network sandboxing — Seatbelt on macOS, Bubblewrap on Linux and WSL2."}
       state_model: {value: persistent, basis: Local repo/workspace state persists; sandbox applies to bash commands and FS/network boundaries.}
       network_policy: {value: configurable, basis: Sandbox-configured network boundaries.}
-      credential_mediation: {value: os_keyring, basis: Auth stored in OS keyring; sandboxing paired with network controls.}
+      credential_mediation:
+        value: ambient
+        basis: "Sandboxed Bash commands inherit the parent process environment by default, including any credentials set there — the default read policy also still allows reading files like ~/.aws/credentials or ~/.ssh/. The optional sandbox.credentials setting can `deny` reads/unset specific env vars, or `mask` an env var behind a sentinel value that a TLS-terminating egress proxy substitutes for the real secret only on requests to allowed hosts — but neither is the default, and there is no OS keyring/keychain-based mediation of secrets by the sandbox feature itself (that mechanism does not appear in the current docs; it does not exist). Independently confirmed via codex CLI."
     risk:
       stated_scope:
         value: [t1_accidents, t2_exfiltration]
@@ -819,8 +864,8 @@ sandboxes:
       assessed_tiers:
         value: [t1_accidents, t2_exfiltration]
         ev: editorial
-        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
-        basis: OS sandbox plus network controls and keyring credentials address accidents and exfiltration; not a hypervisor boundary.
+        derived_from: [classification.isolation_boundary, classification.network_policy]
+        basis: "OS sandbox plus default-deny-then-prompt network controls address accidents and exfiltration; not a hypervisor boundary. Credentials are ambient by default (ambient env inheritance, deny/mask are opt-in), so this tier's credibility rests on the network boundary and user-configured sandbox.credentials rules, not on any built-in credential mediation."
       design_intent:
         value: both
         basis: Stated goal is safer autonomy with fewer permission prompts — gating and liberation together.
@@ -829,14 +874,18 @@ sandboxes:
       value: OS-sandbox primitives; no VM or container overhead.
       basis: Documented mechanism.
     convenience_notes:
-      - {value: Reduces permission prompts, per Anthropic's stated design goal.}
+      - {value: "Reduces permission prompts, per Anthropic's stated design goal."}
       - {value: Zero-install for existing Claude Code users., ev: editorial, basis: It is a feature of the product the user already runs.}
     integrations: [ide_integrations, permissions_system, devcontainer_guidance, agent_sdk, managed_agents_docs]
     audience: [claude_code_users]
+    compliance:
+      value: not_referenced_in_these_sources_trust_center_exists_separately
+      ev: editorial
+      src: anthropic_containment
+      basis: "Neither cited engineering post references any active trust-center certification for this specific sandbox feature (no SOC 2, ISO 27001, etc). The containment post's only certification-adjacent mention is ISO/IEC 42001, named in a forward-looking \"Looking ahead\" section as an external AI-management standard the industry should develop toward, not something claimed as already held. This is scoped to these two posts only: Anthropic does maintain a separate Trust Center (trust.anthropic.com) documenting an actual SOC 2 Type II report and ISO 27001 certificate at the company level, per code.claude.com/docs/en/security — that just isn't what these two engineering posts discuss. Independently confirmed via codex CLI, grok CLI, and direct fetches of all sources."
     limitations:
       - {value: Relies on the user approval model outside the sandbox.}
       - {value: Boundaries must be configured correctly.}
-    compliance: {value: trust_center_certifications_referenced}
 
   - id: codex_sandbox
     name: Codex sandbox
@@ -846,24 +895,26 @@ sandboxes:
     license: product_feature
     maturity: {value: mature_product_docs}
     thread_status: {value: directly_linked, src: hn_thread}
-    platforms: {value: [macos, linux, wsl, windows_powershell, cloud], basis: Seatbelt on macOS, Bubblewrap on Linux/WSL, native Windows sandbox on PowerShell; cloud tasks in isolated cloud environments.}
+    platforms: {value: [macos, linux, wsl, windows_powershell, cloud], basis: "Seatbelt on macOS, Bubblewrap on Linux/WSL, native Windows sandbox on PowerShell; cloud tasks in isolated cloud environments."}
     agents_supported: [codex]
     classification:
       role: runtime_feature
-      execution_locus: {value: hybrid, basis: Local, worktree, and cloud execution modes documented.}
+      execution_locus: {value: hybrid, basis: "Local, worktree, and cloud execution modes documented."}
       isolation_boundary: {value: os_sandbox, basis: OS-native sandboxing locally; isolated cloud environments for cloud tasks.}
       state_model: {value: configurable, basis: Local and worktree tasks run on your machine; cloud tasks run remotely; boundaries govern write scope.}
       network_policy: {value: configurable, basis: Default network off locally; managed network policy in enterprise guidance.}
-      credential_mediation: {value: os_keyring, basis: Keyring-backed credentials plus managed configs.}
+      credential_mediation:
+        value: unspecified
+        basis: "The cited sandboxing and agent-approvals-security docs describe filesystem/network boundaries and approvals, but no sandbox-specific credential mediation mechanism. Codex's `cli_auth_credentials_store` config (auth.json vs OS keychain) governs where the CLI caches its OWN login credentials — that is unrelated to how the local sandbox mediates a project's secrets. Independently confirmed via codex CLI."
     risk:
       stated_scope:
         value: [t1_accidents, t2_exfiltration]
-        basis: OpenAI documents sandboxing, approvals, network policies, keyring credentials, and agent-native telemetry / audit trails.
+        basis: OpenAI documents sandboxing, approvals, network policies, and agent-native telemetry / audit trails.
       assessed_tiers:
         value: [t1_accidents, t2_exfiltration]
         ev: editorial
-        derived_from: [classification.network_policy, classification.credential_mediation]
-        basis: Default-off local network is a notably conservative exfiltration posture; the local boundary remains OS-sandbox-grade rather than hypervisor-grade.
+        derived_from: [classification.network_policy]
+        basis: Default-off local network is a notably conservative exfiltration posture on its own; the local boundary remains OS-sandbox-grade rather than hypervisor-grade, and no sandbox-specific credential mediation is documented.
       design_intent:
         value: both
         basis: Approvals model (constrain) combined with sandboxed autonomous modes (liberate).
@@ -906,7 +957,7 @@ sandboxes:
       network_policy:
         value: configurable
         basis: Open by default; the firewall skill flips to deny-by-default with an allowlist, and the firewall-open skill keeps network open while selectively blocking named hosts (egress = ["!host"]).
-      credential_mediation: {value: mounted, basis: Project mounted read-write; credentials passed through, with an opt-in shared-auth mode across projects.}
+      credential_mediation: {value: mounted, basis: "Project mounted read-write; credentials passed through, with an opt-in shared-auth mode across projects."}
     risk:
       stated_scope:
         value: [t1_accidents]
@@ -978,11 +1029,11 @@ sandboxes:
       basis: Documented Seatbelt / Landlock / bubblewrap path.
     convenience_notes:
       - {value: YAML project config with trust gate; one command across agents.}
-      - {value: Capability bundles (docker, k8s, aws, …) instead of hand-written path rules.}
+      - {value: "Capability bundles (docker, k8s, aws, …) instead of hand-written path rules."}
     integrations: [cli, aide_yaml, sops_age_secrets, capabilities, mcp]
     audience: [individual_developer, team]
     limitations:
-      - {value: Shared-kernel OS sandbox, not a microVM or full VM.}
+      - {value: "Shared-kernel OS sandbox, not a microVM or full VM."}
       - {value: Network open in default code-only mode.}
       - {value: Unlocked capabilities intentionally expose the corresponding credentials to the agent.}
     compliance: {value: none_stated}
@@ -995,7 +1046,7 @@ sandboxes:
     license: Apache-2.0
     maturity:
       value: pre_1_0_active
-      basis: v0.68.0 as of July 2026 with 100+ releases; README states "In the lead-up to a 1.0 release, APIs are stabilizing."
+      basis: v0.68.0 as of July 2026 with 100 GitHub releases (102 tags); README states "In the lead-up to a 1.0 release, APIs are stabilizing."
     thread_status:
       value: not_from_hn_thread
       src: user_email_2026_07_20
@@ -1018,11 +1069,11 @@ sandboxes:
         basis: Runs directly against the host project (no separate VM/container disk); capability sets can be serialized/restored as JSON, and atomic rollbacks use content-addressable filesystem snapshots.
       network_policy:
         value: configurable
-        basis: Domain-level (L7) allow-list filtering and proxy modes; README frames it as enforcing "a least-privilege sandbox" with example policies showing explicit default-deny rules requiring allow-listing, though the exact pre-configuration default was not confirmed in fetched docs.
+        basis: "Domain-level (L7) allow-list filtering and proxy modes; docs confirm the pre-configuration default is actually open — unrestricted network access — with default-deny/allow-listing only taking effect once `--allow-domain`/`--network-profile` is explicitly set."
       credential_mediation:
         value: host_side_injection
         src: nono_docs
-        basis: Site states secrets "are injected at the boundary and never exposed to the agent" and "zeroised on exit"; supports proxy-based injection from OS keystore, 1Password, Bitwarden, Apple Passwords, files, or env, plus sandboxed OAuth logins where the agent only ever sees a phantom token.
+        basis: "Site states secrets \"are injected at the boundary and never exposed to the agent\" and \"zeroised on exit\"; supports proxy-based injection (true host-side, opt-in via `--credential`) from OS keystore, 1Password, Bitwarden, Apple Passwords, files, or env, plus sandboxed OAuth logins where the agent only ever sees a phantom token. A second, less-safe mode (`--env-credential`) exposes the secret directly in the sandboxed process's environment instead — neither mode is the default; the user must opt into one."
     risk:
       stated_scope:
         value: [t1_accidents, t2_exfiltration]
@@ -1037,7 +1088,7 @@ sandboxes:
         basis: Framing centers on capability-based least privilege, irrevocable allow-lists, and audit trails — gating agent actions rather than open-ended autonomy.
     pricing:
       model: free_oss
-      notes: {value: Core CLI is Apache-2.0 OSS; a dedicated pricing page returned 404 at audit time (2026-07-20), so a possible paid/hosted tier is unconfirmed.}
+      notes: {value: "Core CLI is Apache-2.0 OSS; a dedicated pricing page returned 404 at audit time (2026-07-20), so a possible paid/hosted tier is unconfirmed."}
     footprint_notes:
       value: No daemon, container, or VM disk usage — kernel primitives applied directly to the agent process.
       basis: README's own framing ("no daemon, no container, no VM, and no disk space usage").
@@ -1047,7 +1098,7 @@ sandboxes:
     audience: [individual_developer, security_minded_developer]
     limitations:
       - {value: Pre-1.0; APIs still stabilizing, per its own docs.}
-      - {value: OS-sandbox boundary (Landlock/seccomp/Seatbelt), not hypervisor-grade.}
+      - {value: "OS-sandbox boundary (Landlock/seccomp/Seatbelt), not hypervisor-grade."}
       - {value: Windows support is WSL2-only with documented feature gaps.}
     compliance: {value: none_stated}
 
@@ -1057,7 +1108,7 @@ sandboxes:
     tagline: Cedar-policy-enforced container wrapper for coding agents, with filesystem/network/MCP-call monitoring.
     urls: {repo: "https://github.com/strongdm/leash"}
     license: Apache-2.0
-    maturity: {value: early_active, basis: 9 releases, latest v1.1.7 as of March 2026; 581 GitHub stars; active development.}
+    maturity: {value: early_active, basis: "9 releases, latest v1.1.7 as of March 2026; 581 GitHub stars; active development."}
     thread_status:
       value: not_from_hn_thread
       src: user_email_2026_07_20
@@ -1096,7 +1147,7 @@ sandboxes:
       value: Two containers per session (an agent container plus a Leash manager container) via Docker/Podman; native macOS helper app adds an experimental monitoring mode.
       basis: "README's Key Concepts section documents an agent container plus a manager container, with env vars forwarded into both."
     convenience_notes:
-      - {value: Default coder image ships ready-to-run agent CLIs (claude, codex, gemini, qwen, opencode); install via npm, Homebrew (macOS), or prebuilt binaries.}
+      - {value: "Default coder image ships ready-to-run agent CLIs (claude, codex, gemini, qwen, opencode); install via npm, Homebrew (macOS), or prebuilt binaries."}
     integrations: [cli, npm, homebrew, cedar_policies, mcp_inspection, docker, podman]
     audience: [individual_developer]
     limitations:
@@ -1174,8 +1225,8 @@ adjacent:
     urls: {repo: "https://github.com/riedel/nix-opencode-with-mitm"}
     thread_status: {value: directly_linked, src: hn_thread}
     summary:
-      value: Prototype using a MITM proxy outside the sandbox for token injection and network control — a DIY embodiment of host-side credential injection.
-      basis: Repo documentation.
+      value: Prototype using a MITM proxy outside the sandbox for network control (allowlist/proxy); the repo's README implements only the network side — token injection was the author's stated aspiration in the source HN comment, not a shipped feature.
+      basis: "Repo README documents mitmproxy allowlist enforcement (default models.dev) and TLS termination only. The originating HN comment (by the repo author) frames token injection as a want, not a delivered mechanism: \"What I would really want is token injection outside the sandbox and good control over the network, why I tried integrating a mitm proxy...\""
 
   - id: separate_user_account
     name: Separate dedicated user account
@@ -1280,7 +1331,7 @@ adjacent:
       ev: thread
     members:
       - {name: Cloudflare workerd, url: "https://github.com/cloudflare/workerd"}
-      - {name: container2wasm, url: "https://news.ycombinator.com/item?id=46825119"}
+      - {name: container2wasm, url: "https://github.com/container2wasm/container2wasm"}
 
   - id: claude_cowork_reference
     name: Claude Cowork (containment reference)
@@ -1296,12 +1347,12 @@ adjacent:
 # Source stack — priority ordering for the site's evidence links.
 # -----------------------------------------------------------------------------
 source_stack:
-  - {priority: highest, kind: official_product_docs_and_readmes, why: Where execution model, network policy, persistence, and integrations are actually documented.}
+  - {priority: highest, kind: official_product_docs_and_readmes, why: "Where execution model, network policy, persistence, and integrations are actually documented."}
   - priority: very_high
     kind: vendor_containment_engineering_posts
     examples: [anthropic_containment, anthropic_sandboxing, codex_security]
     why: Best primary material on agent threat models and why sandboxing needs approvals plus network control.
   - {priority: high, kind: official_pricing_and_service_docs, why: Required for real cost comparison of managed offerings.}
   - {priority: high, kind: official_api_and_integration_docs, why: Integration surface is a major differentiator.}
-  - {priority: medium, kind: repo_security_model_docs, why: Often contain the best limitations language, especially for OSS tools.}
-  - {priority: medium, kind: hn_thread, ref: hn_thread, why: Discovery, adjacent approaches, and what practitioners think is missing.}
+  - {priority: medium, kind: repo_security_model_docs, why: "Often contain the best limitations language, especially for OSS tools."}
+  - {priority: medium, kind: hn_thread, ref: hn_thread, why: "Discovery, adjacent approaches, and what practitioners think is missing."}
