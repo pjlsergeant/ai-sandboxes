@@ -61,11 +61,35 @@
 # claude_code_cited meaning "mentioned in passing, not a real integration";
 # instavm_coderunner's macos_apple_silicon meaning "Apple Silicon only, not
 # Intel") now lives explicitly in that field's basis text instead.
+#
+# v0.2.6 change: added three sandboxes entries (2026-07-20). Greywall
+# (GreyhavenHQ) -- container-free deny-by-default OS sandbox (bubblewrap/
+# Landlock/seccomp/eBPF + kernel-level TUN network capture on Linux, Seatbelt
+# on macOS) with host-side credential substitution; user-submitted
+# recommendation. Fence (fencesandbox, formerly Use-Tusk) -- the lighter-weight
+# sandbox Greywall's authors evaluated and moved away from, added while
+# investigating that history; default network policy turned out to be
+# kernel-enforced on both platforms (not cooperation-dependent, as first
+# assumed), but credentials stay ambient -- no substitution mechanism.
+# Omnigent/Omnibox (Databricks) -- OS-sandbox feature bundled inside an
+# open-source multi-agent meta-harness (classified runtime_feature, not a
+# standalone tool); its Windows backend turned out to provide only
+# process-tree kill-on-close, not the CPU/memory ceilings its own docs
+# describe. All three: ships profiles/integrations for several agents with no
+# id in the closed agents_supported taxonomy (Amp, Cline, Kilo, Auggie, Droid,
+# Crush, Kiro) -- recorded in each entry's basis text rather than growing that
+# taxonomy per-agent, a deliberate call not to chase every individual agent
+# id. A fourth candidate (XaresAICoder, a self-hosted browser IDE bundling
+# several agent CLIs) was investigated and deliberately left out: real,
+# actively maintained project, but a generic dev-environment container (like
+# github_codespaces) rather than a boundary purpose-built around an agent's
+# threat model -- no default egress policy, no credential mediation, and
+# seccomp explicitly disabled for debugger compatibility.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.5"
+  version: "0.2.6"
   generated: "2026-07-14"
   updated: "2026-07-20"
   primary_thread:
@@ -266,6 +290,25 @@ sources:
   anthropic_trust_center: {url: "https://trust.anthropic.com", title: "Anthropic Trust Center"}
   exe_dev_docs:         {url: "https://exe.dev/docs/integrations", title: "exe.dev docs: Integrations"}
   user_email_2026_07_20: {url: null, title: "User-submitted comparison, private email, 2026-07-20 (not part of the HN thread)"}
+  greywall_repo:        {url: "https://github.com/GreyhavenHQ/greywall", title: "Greywall README"}
+  greywall_site:        {url: "https://greywall.io/", title: "Greywall site"}
+  greywall_docs:        {url: "https://docs.greywall.io/greywall", title: "Greywall docs: Install & Platform Support"}
+  greywall_agent_profiles_tree: {url: "https://github.com/GreyhavenHQ/greywall/tree/main/internal/profiles/agents", title: "Greywall repo: internal/profiles/agents (verified 2026-07-20)"}
+  greywall_credentials: {url: "https://docs.greywall.io/greywall/credential-protection", title: "Greywall docs: Credential Protection"}
+  greyhaven_origin_post: {url: "https://greyhaven.co/insights/why-we-built-our-own-sandboxing-system", title: "Greyhaven: Why we built our own sandboxing system"}
+  greywall_github_api:  {url: "https://api.github.com/repos/GreyhavenHQ/greywall", title: "GreyhavenHQ/greywall GitHub API metadata (verified 2026-07-20)"}
+  agent_research_2026_07_20: {url: null, title: "Follow-up research triggered by investigating Greywall's stated influences, 2026-07-20 session"}
+  fence_repo:           {url: "https://github.com/fencesandbox/fence", title: "Fence README (moved from github.com/Use-Tusk/fence)"}
+  fence_why:            {url: "https://github.com/fencesandbox/fence/blob/main/docs/why-fence.md", title: "Fence docs: Why Fence (design philosophy & explicit non-goals)"}
+  fence_architecture:   {url: "https://github.com/fencesandbox/fence/blob/main/ARCHITECTURE.md", title: "Fence ARCHITECTURE.md"}
+  fence_agents_docs:    {url: "https://github.com/fencesandbox/fence/blob/main/docs/agents.md", title: "Fence docs: supported coding agents"}
+  fence_configuration_docs: {url: "https://github.com/fencesandbox/fence/blob/main/docs/configuration.md", title: "Fence docs: configuration (templates, denied-credential rules)"}
+  fence_github_api:     {url: "https://api.github.com/repos/fencesandbox/fence", title: "fencesandbox/fence GitHub API metadata (verified 2026-07-20)"}
+  user_submitted_links_2026_07_20: {url: null, title: "User-submitted URLs (Databricks blog + Omnibox docs), pasted directly in session, 2026-07-20 (not part of the HN thread)"}
+  omnigent_databricks_blog: {url: "https://www.databricks.com/blog/introducing-omnigent-meta-harness-combine-control-and-share-your-agents", title: "Databricks blog: Introducing Omnigent"}
+  omnigent_docs_omnibox: {url: "https://omnigent.ai/docs/omnibox", title: "Omnigent docs: Omnibox"}
+  omnigent_repo:        {url: "https://github.com/omnigent-ai/omnigent", title: "omnigent-ai/omnigent README & source (verified 2026-07-20)"}
+  omnigent_github_api:  {url: "https://api.github.com/repos/omnigent-ai/omnigent", title: "omnigent-ai/omnigent GitHub API metadata (verified 2026-07-20)"}
 
 # -----------------------------------------------------------------------------
 # UI hints. The decision funnel keys off documented fields only.
@@ -1222,6 +1265,206 @@ sandboxes:
       - {value: "Its own DISCLAIMER.txt provides no warranty and states \"no support or maintenance is provided. Use is at your own risk,\" with no further security scoping.", src: leash_disclaimer}
       - {value: Provider API keys are forwarded into the container rather than proxied at the boundary.}
       - {value: One user reported per-worktree spin-up was slow enough to prompt switching to a different tool; not vendor-documented or independently benchmarked., ev: editorial, src: user_email_2026_07_20}
+    compliance: {value: none_stated}
+
+  - id: greywall
+    name: Greywall
+    default_source: greywall_repo
+    tagline: Container-free, deny-by-default OS sandbox with kernel-level transparent network capture and host-side credential substitution.
+    urls: {official: "https://greywall.io/", repo: "https://github.com/GreyhavenHQ/greywall", docs: "https://docs.greywall.io/greywall"}
+    license: Apache-2.0
+    maturity:
+      value: pre_1_0_active
+      src: greywall_github_api
+      basis: "v0.3.7 as of 2026-06-01 (verified via GitHub API, not just marketing copy); 271 GitHub stars; repo created 2026-03-04, last pushed 2026-06-11 -- roughly six weeks stale relative to this audit."
+    thread_status:
+      value: not_from_hn_thread
+      src: user_email_2026_07_20
+      basis: Added 2026-07-20 from a user-submitted recommendation, independent of the source HN thread.
+    platforms:
+      value: [linux, macos]
+      basis: "Linux gets the full five-layer stack (bubblewrap, Landlock, seccomp-BPF, eBPF monitoring, TUN-based transparent network capture); macOS uses sandbox-exec (Seatbelt) with no transparent network capture -- network mediation there falls back to proxy-env-var cooperation only, a materially weaker exfiltration boundary than Linux's."
+    agents_supported:
+      value: [claude_code, codex, cursor, aider, goose, gemini_cli, opencode, copilot, pi]
+      src: greywall_agent_profiles_tree
+      basis: "Repo's internal/profiles/agents tree ships 14 built-in profiles: these 9 plus Amp, Cline, Kilo, Auggie, and Droid, none of which have ids in this dataset's closed agents_supported taxonomy; recorded here rather than expanding the taxonomy per-agent."
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary:
+        value: os_sandbox
+        basis: "Bubblewrap namespacing + Landlock + seccomp-BPF + eBPF violation monitoring on Linux, Seatbelt on macOS -- all OS-primitive boundaries, not a container/VM backend, so classified like nono rather than as `layered`."
+      state_model:
+        value: persistent
+        basis: Runs directly against the host project via OS primitives; no separate container/VM disk to reset.
+      network_policy:
+        value: proxy_mediated
+        basis: "Default-deny; all traffic routed through greyproxy (SOCKS5, local dashboard). On Linux this is enforced via kernel-level TUN capture so it also catches binaries that ignore proxy env vars -- the explicit reason Greyhaven built this instead of adopting Fence (see limitations). `--watch` mode inverts to allow-by-default for observability while keeping proxy visibility."
+      credential_mediation:
+        value: host_side_injection
+        src: greywall_credentials
+        basis: "Credential substitution is on by default: env vars matching known secret patterns are replaced with an opaque placeholder token in the sandboxed process; greyproxy substitutes the real value only at egress, so the agent process never holds the real key. `.env` handling differs by platform: on Linux a rewritten placeholder copy is bind-mounted read-only over the original (readable, but fake, without breaking tools that expect the file to exist); on macOS Seatbelt can't redirect a read to a different file, so `.env` is denied outright instead. SSH keys and git hooks are denied on both. Disableable via --no-credential-protection."
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: "Marketing and docs center on accidental destructive commands, credential exposure via .env/secrets, and network exfiltration (blocking egress to arbitrary domains, including from binaries that bypass proxy env vars); five kernel-enforced layers are also framed as blocking dangerous syscalls, but no hypervisor-grade escape claim is made."
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: "OS-sandbox boundary (bubblewrap/Landlock/seccomp/Seatbelt) is assessed like this dataset's other os_sandbox entries (nono, aide, flar) -- credible for accidents and exfiltration given the proxy-mediated network default and host-side credential injection, not for hostile-code escape without a hypervisor/microVM boundary. On macOS specifically, the weaker (env-var-only) network mediation makes the exfiltration assessment less confident than on Linux."
+      design_intent:
+        value: constrain
+        basis: Framing centers on deny-by-default gating of filesystem, network, and syscall access, plus live observability of what the agent touches.
+    pricing:
+      model: free_oss
+      notes: {value: "Core tool is Apache-2.0 OSS; site mentions a team-wide \"managed governance layer\" as coming soon, no pricing published."}
+    footprint_notes:
+      value: Container-free -- OS primitives (bubblewrap/Landlock/seccomp/Seatbelt) applied directly to the wrapped process, no image builds or container/VM disk.
+      basis: "Built explicitly to avoid the image-rebuild friction of Greyhaven's earlier Docker-based tool (Cubbi), per their own origin writeup."
+    convenience_notes:
+      - {value: "Learning mode traces filesystem access (strace on Linux, eslogger on macOS) while running a command permissively, then auto-generates a least-privilege profile; ships built-in profiles for common toolchains (Node, Python, Go, Rust, Java, Ruby, Docker) layerable via --profile."}
+    integrations: [cli, homebrew, go_install, mise, socks5_proxy, dashboard]
+    audience: [individual_developer, security_minded_developer]
+    limitations:
+      - {value: "Pre-1.0; repo last pushed 2026-06-11, about six weeks stale relative to this audit.", src: greywall_github_api}
+      - {value: "OS-sandbox boundary (bubblewrap/Landlock/seccomp/Seatbelt), not hypervisor-grade."}
+      - {value: "macOS lacks Linux's kernel-level TUN network capture -- network mediation there depends on the process cooperating with proxy env vars. Greyhaven's own origin post cites exactly this class of gap (proxy-cooperation dependence) in Fence, a prior project they evaluated, as their stated reason for building Greywall instead; per the separate fence entry, Fence's current default policy is actually kernel-enforced on both platforms except in specific fallback/relaxed configurations, so treat this as Greyhaven's historical framing rather than a live comparison of the two tools' current behavior.", src: greyhaven_origin_post}
+      - {value: "14 built-in agent profiles, but 5 (Amp, Cline, Kilo, Auggie, Droid) have no id in this dataset's closed agents_supported taxonomy and aren't represented in that field.", ev: editorial, basis: "Counted directly from the repo's internal/profiles/agents directory listing (14 files) against this dataset's closed taxonomy.agents_supported list; the gap is this dataset's classification limitation, not something Greywall's own docs state."}
+    compliance: {value: none_stated}
+
+  - id: fence
+    name: Fence
+    default_source: fence_repo
+    tagline: Lightweight, container-free OS sandbox with per-agent config templates; the project Greywall's authors evaluated and moved away from.
+    urls: {official: "https://fencesandbox.com/", repo: "https://github.com/fencesandbox/fence", docs: "https://github.com/fencesandbox/fence/blob/main/docs/README.md"}
+    license: Apache-2.0
+    maturity:
+      value: pre_1_0_active
+      src: fence_github_api
+      basis: "v0.1.63 as of 2026-07-19 (verified via GitHub API); 859 GitHub stars; 64 releases; repo created 2025-12-18 and pushed as recently as the day before this audit -- markedly more active than Greywall's six-week-stale push. Moved orgs from github.com/Use-Tusk/fence to github.com/fencesandbox/fence; the old org's API path 301-redirects to the same repository via GitHub's repo-id endpoint, i.e. a tracked rename, not a dead/abandoned repo."
+    thread_status:
+      value: not_from_hn_thread
+      src: agent_research_2026_07_20
+      basis: "Investigated 2026-07-20 after Greywall's own origin post (see the greywall entry's limitations) named Fence as a prior project Greyhaven evaluated before building their own tool; not part of this dataset's primary Clawk HN thread."
+    platforms:
+      value: [macos, linux, windows_wsl2]
+      basis: "macOS via sandbox-exec (Seatbelt); Linux via bubblewrap+seccomp+Landlock; Windows only via the Nix install method running under WSL, per its own install docs -- no native Windows support documented."
+    agents_supported:
+      value: [claude_code, codex, gemini_cli, copilot, cursor, opencode, pi]
+      src: fence_agents_docs
+      basis: "docs/agents.md documents template support for these plus Amp, Droid, and Crush, none of which have ids in this dataset's closed agents_supported taxonomy (same gap noted on the greywall entry); Cursor needs the code-relaxed template specifically because its Node/undici HTTP client doesn't respect HTTP_PROXY."
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary:
+        value: os_sandbox
+        basis: "sandbox-exec on macOS, bubblewrap+seccomp+Landlock on Linux -- OS-primitive boundaries, no container/VM backend, classified like nono/greywall rather than as `layered`."
+      state_model:
+        value: persistent
+        basis: Runs directly against the host project via OS primitives; no separate container/VM disk to reset.
+      network_policy:
+        value: proxy_mediated
+        basis: "Domain allowlisting enforced via Fence's own HTTP/SOCKS5 proxies, block-all-by-default, and the default posture is kernel-enforced on both platforms per ARCHITECTURE.md: Linux with network-namespace support has no direct route to the network at all (raw sockets can't reach anything except the proxy bridge), and macOS's default 'proxy-only' Seatbelt profile likewise denies direct outbound connections at the sandbox-policy level, not merely by convention. Enforcement drops to cooperation-with-proxy-env-vars in documented fallback/opt-in cases: Linux environments without network-namespace support (some containers/CI), and the relaxed template (`allowedDomains: [\"*\"]`, the one documented for Cursor) on either platform -- on Linux it also disables `--unshare-net`, not just macOS's Seatbelt restriction. Its own why-fence.md calls domain-based allowlisting 'crude' regardless of enforcement path -- an allowed domain can still be used to exfiltrate data, since there's no content inspection."
+      credential_mediation:
+        value: ambient
+        src: fence_configuration_docs
+        basis: "No credential substitution/injection mechanism is documented (unlike nono/greywall's host-side proxy injection) -- any secret already in the process environment (e.g. a provider API key) stays ambient and visible to the sandboxed agent. The default 'code' template does deny filesystem reads to .env and ~/.ssh by default, and blocks cloud metadata-service IPs, but that's a filesystem/network floor, not mediation of credentials the agent legitimately needs."
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: "Its own why-fence.md frames the tool around default-deny network egress (for exfiltration/supply-chain risk) and filesystem write restrictions (for accidents), while explicitly disclaiming several other threat classes (see limitations) -- an unusually candid non-goals section for this dataset."
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: "OS-sandbox boundary supports accident containment reliably, and the default network policy is kernel-enforced on both platforms (see classification.network_policy). Exfiltration-tier credit is nonetheless withheld here (unlike nono/greywall): credentials are ambient rather than mediated, so an already-ambient secret can leave through any allowed domain, which the project's own docs concede is a crude, non-content-inspecting control -- and enforcement itself falls back to cooperation-dependent in specific documented cases (no Linux network-namespace support; the relaxed template on either platform, which also disables Linux's --unshare-net). Hostile-code escape is explicitly out of scope per its own non-goals."
+      design_intent:
+        value: constrain
+        basis: Framing centers on default-deny network/filesystem policy the operator configures and commits, gating agent actions.
+    pricing:
+      model: free_oss
+      notes: {value: "Apache-2.0 CLI tool; no pricing page or commercial tier found (unlike Greywall, which has a company, Greyhaven, behind it with a 'coming soon' governance layer)."}
+    footprint_notes:
+      value: Container-free -- OS primitives (sandbox-exec/bubblewrap) applied directly to the wrapped process, no image builds or container/VM disk.
+      basis: README frames it as a lightweight alternative to containerizing every sandboxed command.
+    convenience_notes:
+      - {value: "Config uses inheritance-based templates (e.g. \"extends\": \"code\") for per-agent rulesets; a monitoring mode observes actual filesystem/network needs before locking down a policy; Claude Code, Cursor, and OpenCode support hook-based rewriting of shell commands to run through fence -c automatically."}
+    integrations: [cli, homebrew, nix, go_install, http_proxy, socks5_proxy]
+    audience: [individual_developer, security_minded_developer]
+    limitations:
+      - {value: "Own docs (why-fence.md) explicitly disclaim protection against actively malicious code, resource exhaustion (no CPU/RAM/disk limits), timing attacks, and kernel escapes.", src: fence_why}
+      - {value: "Domain-based network allowlisting is content-blind -- its own docs call this 'crude', since an allowed domain can still be used to exfiltrate data.", src: fence_why}
+      - {value: "No credential substitution/redaction mechanism; secrets already in the process environment remain ambient to the sandboxed agent."}
+      - {value: "Default network enforcement is kernel-enforced on both platforms (Linux network namespaces; macOS proxy-only Seatbelt profile), but degrades to cooperation-with-proxy-env-vars: on Linux without network-namespace support (some containers/CI), and under the relaxed template on either platform -- on Linux the relaxed template also disables --unshare-net, not just macOS's Seatbelt restriction.", src: fence_architecture}
+      - {value: "7 built-in agent templates map to this dataset's taxonomy; Amp, Droid, and Crush don't have ids and aren't represented in that field.", ev: editorial, basis: "Counted directly from docs/agents.md's documented template list against this dataset's closed taxonomy.agents_supported list; the gap is this dataset's classification limitation, not something Fence's own docs state."}
+    compliance: {value: none_stated}
+
+  - id: omnigent
+    name: Omnigent (Omnibox sandbox)
+    default_source: omnigent_repo
+    tagline: Databricks' open-source meta-harness for orchestrating coding-agent CLIs, with a bundled OS-sandbox feature (Omnibox) for filesystem/network isolation and credential injection.
+    urls: {official: "https://omnigent.ai/", repo: "https://github.com/omnigent-ai/omnigent", docs: "https://omnigent.ai/docs/omnibox", blog: "https://www.databricks.com/blog/introducing-omnigent-meta-harness-combine-control-and-share-your-agents"}
+    license: Apache-2.0
+    maturity:
+      value: pre_1_0_active
+      src: omnigent_github_api
+      basis: "v0.5.1 as of 2026-07-10 (verified via GitHub API); 7,545 GitHub stars; repo created 2026-06-11 and pushed as recently as today (2026-07-20) -- about six weeks old but growing fast, with Databricks (incl. Matei Zaharia) publicly behind it."
+    thread_status:
+      value: not_from_hn_thread
+      src: user_submitted_links_2026_07_20
+      basis: "User pasted the Databricks announcement blog and Omnibox docs URLs directly in-session, 2026-07-20; not part of this dataset's primary Clawk HN thread."
+    platforms:
+      value: [linux, macos, windows_powershell]
+      basis: "Full filesystem+network isolation via bubblewrap+seccomp (Linux) and Seatbelt (macOS), both kernel-enforced. Windows uses a Job Object backend that is NOT equivalent: filesystem and network restrictions from the same spec fields are explicitly advisory and unenforced there (one-time warning emitted, no actual isolation). Its docstring/README also claim optional CPU/memory ceilings, but the implementation (windows_jobobject_sandbox.py's post_spawn) discards the resolved policy (`del policy`) and only ever sets JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE -- so shipped Windows behavior is process-tree kill-on-close only, weaker even than its own docs claim."
+    agents_supported:
+      value: [claude_code, codex, cursor, opencode, pi, goose, qwen_code, antigravity, hermes, kimi_code, copilot]
+      src: omnigent_repo
+      basis: "The docs page names only Claude Code, Codex, and \"custom agents\" explicitly, but the repo's own native-integration modules (claude_native*.py, codex_native*.py, cursor_native*.py, opencode_native*.py, pi_native*.py, goose_native*.py, qwen_native*.py, antigravity_native*.py, hermes_native*.py, kimi_native*.py) show real native support for ten, and harness_plugins.py registers an eleventh, SDK-based (not native-terminal) copilot harness (omnigent.inner.copilot_harness). A further kiro_native*.py integration exists with no id in this dataset's closed agents_supported taxonomy."
+    classification:
+      role: runtime_feature
+      execution_locus: local
+      isolation_boundary:
+        value: os_sandbox
+        basis: "Bubblewrap+seccomp (Linux) / Seatbelt (macOS) give a real kernel-enforced boundary; the platform-default backend is chosen at spec-parse time and fails loudly (raises, explicitly 'no silent fallback') if the required binary is missing, rather than silently downgrading. Windows's Job Object backend is a materially weaker boundary -- see platforms basis -- so this os_sandbox rating describes the Linux/macOS backends specifically."
+      state_model:
+        value: persistent
+        basis: Runs directly against the host project via OS primitives; no separate container/VM disk to reset.
+      network_policy:
+        value: configurable
+        basis: "On Linux/macOS, a default-deny egress proxy enforces an explicit allow-list of hosts/paths/methods and blocks private IPs and cloud metadata endpoints by default, backed by real kernel-level network isolation. On Windows, the identical spec fields (e.g. allow_network) are accepted but not enforced by the Job Object backend, which does no network isolation at all -- so unlike nono/greywall's more uniform proxy_mediated posture, this is genuinely per-platform rather than one consistent default."
+      credential_mediation:
+        value: host_side_injection
+        src: omnigent_docs_omnibox
+        basis: "Blog and docs describe placeholder tokens issued to the agent process, with the real credential swapped in only at the egress proxy for requests matching the allow-list, so the agent process itself never holds the real secret -- architecturally close to nono/greywall's model. That guarantee rides on the same platform split as network_policy: credible on Linux/macOS, where network really is confined to the mediated proxy path; unconfirmed on Windows, where nothing in the sandbox itself forces traffic through the proxy to begin with."
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: "Blog's own framing example is explicit: 'don't let an agent ever see your GitHub security token, but instead, inject it only in the egress proxy on approved requests' -- a direct accidents/exfiltration framing, paired with default-deny network and denied access to private IPs/cloud metadata."
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: "Credible on Linux/macOS, where the OS-sandbox boundary genuinely confines egress to the mediated proxy path and credentials never reach the agent process directly -- assessed like this dataset's other os_sandbox entries with host-side credential injection (nono, greywall). This assessment describes the Linux/macOS backends only: on Windows, filesystem and network restrictions are explicitly advisory and unenforced, so neither tier should be assumed to hold there. No hypervisor-grade boundary exists on any platform, so hostile-code escape is out of scope everywhere."
+      design_intent:
+        value: constrain
+        basis: Framing centers on locking down OS/network access by default and injecting credentials only on approved egress requests -- gating rather than open-ended autonomy.
+    pricing:
+      model: free_oss
+      notes: {value: "Apache-2.0, no separate Omnibox pricing. The repo's own sandbox-launcher CLI code references a Databricks-hosted remote sandbox provider ('Lakebox') as internal-only ('ships only internally'), so the externally available OSS repo's remote-hosting story is incomplete for outside users."}
+    footprint_notes:
+      value: OS-sandbox primitives on Linux/macOS (no container/VM); Windows relies on a Job Object that only kills the process tree together on close -- resource ceilings the docstring describes as available aren't actually wired up in the shipped code.
+      basis: "Linux/macOS claim per the bwrap/Seatbelt backend module docstrings. The Windows correction is grounded in the implementation itself, not its docs: windows_jobobject_sandbox.py's post_spawn discards the resolved policy (`del policy`) and only ever sets JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE -- the module's own docstring and the project README both describe CPU/memory ceilings as available, which the shipped code does not implement."
+    convenience_notes:
+      - {value: "Bundled into a meta-harness that already integrates 11 agent CLIs/SDKs (see agents_supported) under one config, rather than requiring a separate sandbox wrapper per agent; also adds real-time session sharing/collaboration on top, per the Databricks announcement."}
+    integrations: [cli, egress_proxy, policies, harness_plugins]
+    audience: [individual_developer, team]
+    limitations:
+      - {value: "Not a standalone tool -- Omnibox has no separate package or binary; it only runs as an internal component of the full Omnigent harness.", ev: editorial, basis: "Inferred from the repo tree: sandbox logic lives in omnigent/inner/bwrap_sandbox.py, seatbelt_sandbox.py, and windows_jobobject_sandbox.py as internal modules of the omnigent package, with no separate omnibox repo, PyPI package, or binary found."}
+      - {value: "Windows sandboxing is materially weaker than Linux/macOS: filesystem and network restrictions are explicitly advisory and unenforced on the Job Object backend, and even the CPU/memory ceilings its own docstring/README describe aren't actually implemented -- post_spawn discards the resolved policy and only ever sets kill-on-close. Shipped Windows behavior is process-tree kill-on-close, nothing more.", src: omnigent_repo}
+      - {value: "Pre-1.0 and about six weeks old as of this audit (repo created 2026-06-11), despite fast growth (7,545 stars) and Databricks backing.", src: omnigent_github_api}
+      - {value: "The docs page names only Claude Code, Codex, and \"custom agents\" explicitly; the fuller list recorded here (ten native-terminal integrations plus one SDK-based harness, Copilot) is inferred from the repo's own integration modules and harness registry, not itself a documented supported-agents list.", ev: editorial, basis: "Cross-checked omnigent.ai/docs/omnibox's stated agent list against the repo's *_native*.py modules and harness_plugins.py's registered harnesses -- the docs page undersells what the source actually ships."}
+      - {value: "A Databricks-hosted remote sandbox launcher ('Lakebox') is referenced in the repo's own CLI code as internal-only, so it isn't available to external users of the OSS repo.", src: omnigent_repo}
     compliance: {value: none_stated}
 
 # -----------------------------------------------------------------------------
