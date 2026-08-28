@@ -89,9 +89,9 @@
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.6"
+  version: "0.2.7"
   generated: "2026-07-14"
-  updated: "2026-07-20"
+  updated: "2026-08-28"
   primary_thread:
     title: "Show HN: Clawk – Give coding agents a disposable Linux VM, not your laptop"
     url: "https://news.ycombinator.com/item?id=48892859"
@@ -309,6 +309,12 @@ sources:
   omnigent_docs_omnibox: {url: "https://omnigent.ai/docs/omnibox", title: "Omnigent docs: Omnibox"}
   omnigent_repo:        {url: "https://github.com/omnigent-ai/omnigent", title: "omnigent-ai/omnigent README & source (verified 2026-07-20)"}
   omnigent_github_api:  {url: "https://api.github.com/repos/omnigent-ai/omnigent", title: "omnigent-ai/omnigent GitHub API metadata (verified 2026-07-20)"}
+  docker_sandboxes_docs:       {url: "https://docs.docker.com/ai/sandboxes/", title: "Docker Sandboxes documentation"}
+  docker_sandboxes_security:   {url: "https://docs.docker.com/ai/sandboxes/security/", title: "Docker Sandboxes security model"}
+  docker_sandboxes_architecture: {url: "https://docs.docker.com/ai/sandboxes/architecture/", title: "Docker Sandboxes architecture"}
+  docker_sandboxes_agents:     {url: "https://docs.docker.com/ai/sandboxes/agents/", title: "Docker Sandboxes supported agents"}
+  docker_sandboxes_install:    {url: "https://docs.docker.com/ai/sandboxes/install/", title: "Docker Sandboxes installation guide"}
+  docker_sandboxes_defaults:   {url: "https://docs.docker.com/ai/sandboxes/security/defaults", title: "Docker Sandboxes default security posture"}
 
 # -----------------------------------------------------------------------------
 # UI hints. The decision funnel keys off documented fields only.
@@ -1466,6 +1472,58 @@ sandboxes:
       - {value: "The docs page names only Claude Code, Codex, and \"custom agents\" explicitly; the fuller list recorded here (ten native-terminal integrations plus one SDK-based harness, Copilot) is inferred from the repo's own integration modules and harness registry, not itself a documented supported-agents list.", ev: editorial, basis: "Cross-checked omnigent.ai/docs/omnibox's stated agent list against the repo's *_native*.py modules and harness_plugins.py's registered harnesses -- the docs page undersells what the source actually ships."}
       - {value: "A Databricks-hosted remote sandbox launcher ('Lakebox') is referenced in the repo's own CLI code as internal-only, so it isn't available to external users of the OSS repo.", src: omnigent_repo}
     compliance: {value: none_stated}
+
+  - id: docker_sandboxes
+    name: Docker Sandboxes (sbx)
+    default_source: docker_sandboxes_docs
+    tagline: Isolated microVM sandboxes with private Docker daemon, host-side credential injection, and deny-by-default network policy.
+    urls: {official: "https://docs.docker.com/ai/sandboxes/", docs: "https://docs.docker.com/ai/sandboxes/", repo: "https://github.com/docker/sbx-releases"}
+    license: proprietary_service
+    maturity: {value: public_beta, basis: "Docs describe it as work-in-progress; sbx CLI is free, org governance is a paid add-on."}
+    thread_status: {value: not_from_hn_thread, src: docker_sandboxes_docs, basis: "Added from official Docker documentation, independent of the source HN thread."}
+    platforms: {value: [macos, linux, windows_powershell], basis: "macOS Sonoma 14+ on Apple Silicon; Ubuntu 24.04+ with KVM; Windows 11 with Hypervisor Platform (PowerShell). No native Windows (non-WSL) support beyond the Hypervisor Platform requirement."}
+    agents_supported:
+      value: [claude_code, codex, copilot, cursor, gemini_cli, opencode]
+      basis: "Docs list Claude Code, Codex, Copilot, Cursor, Docker Agent, Droid, Gemini, Kiro, OpenCode, and Shell. Docker Agent, Droid, Kiro, and Shell have no ids in this dataset's closed agents_supported taxonomy; recorded here rather than expanding the taxonomy per-agent."
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: microvm, src: docker_sandboxes_architecture, basis: "Each sandbox is a separate hypervisor-backed microVM with its own kernel, Docker Engine, and filesystem. Hypervisor isolation is the primary trust boundary."}
+      state_model: {value: persistent, src: docker_sandboxes_architecture, basis: "Sandboxes persist until explicitly removed (sbx rm); VM state, Docker images, installed packages, and agent history carry over between runs."}
+      network_policy: {value: configurable, src: docker_sandboxes_security, basis: "Deny-by-default outbound TCP with explicit allow rules via sbx policy; defaults include broad wildcard domains. Direct external UDP and ICMP blocked at network layer. Upstream proxy chaining supported."}
+      credential_mediation: {value: host_side_injection, src: docker_sandboxes_security, basis: "Host-side proxy injects authentication headers into outbound HTTP requests; raw credential values never enter the VM. Credentials provided via sbx secret or environment variables."}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        src: docker_sandboxes_security
+        basis: "Security model explicitly covers hypervisor isolation (hostile escape), network proxy with deny-by-default (exfiltration), and credential injection (exfiltration). Workspace isolation is opt-in via --clone mode."
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: "MicroVM boundary is hypervisor-grade (credible for hostile escape); host-side network proxy with deny-by-default and credential injection addresses exfiltration; workspace in direct mode is mutable on host (accident risk), but clone mode adds a workspace boundary."
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: "Built to let agents run autonomously with full Docker access inside a strong boundary, not to gate every tool call."
+    pricing:
+      model: free_tier_plus_usage
+      notes: {value: "sbx CLI is free (including commercial use). Organization governance (centralized network/filesystem/MCP policies) requires a separate paid subscription."}
+    footprint_notes:
+      value: "One microVM per sandbox with its own Docker daemon; disk grows with images, containers, and packages. Virtiofs caching enabled by default on all OSes."
+      basis: "Documented architecture; each sandbox maintains isolated Docker daemon state and image cache."
+    convenience_notes:
+      - {value: "sbx run <agent> one-command launch; SSH/VS Code integration; MCP gateway; shared agent skills store; reusable templates (kits); clone mode for workspace isolation."}
+    integrations: [cli, ssh, vscode, mcp_gateway, agent_skills, kits, upstream_proxy, governance]
+    audience: [individual_developer, team, enterprise]
+    limitations:
+      - {value: "Direct workspace mount is read-write by default — agent edits host files live; clone mode (--clone) is opt-in.", src: docker_sandboxes_security}
+      - {value: "Default allowed domains include broad wildcards (e.g., *.googleapis.com); operator must prune with sbx policy.", src: docker_sandboxes_defaults}
+      - {value: "Shared agent skills store mounts read-write by default, creating a cross-sandbox trust boundary; opt out with --no-share-skills.", src: docker_sandboxes_security}
+      - {value: "Local stdio MCP servers run on host, not in sandbox; if they spawn containers, those use host Docker/permissions.", src: docker_sandboxes_security}
+      - {value: "macOS requires Apple Silicon (M1+); Intel Macs unsupported. Linux requires KVM + nested virt if in VM. Windows requires Hypervisor Platform.", src: docker_sandboxes_install}
+      - {value: "Sign-in to Docker required (OAuth).", src: docker_sandboxes_install}
+    compliance: {value: none_stated_in_fetched_docs}
 
 # -----------------------------------------------------------------------------
 # Adjacent tools & approaches. Same claim conventions; lighter schema.
