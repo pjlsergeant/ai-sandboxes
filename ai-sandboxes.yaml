@@ -1,3 +1,8 @@
+# v0.2.7 change: added SandBase Harness (2026-08-31), a local-first,
+# self-hosted runtime with persistent sessions, MCP/tool governance, and
+# selectable Local, Docker, Kubernetes, and worker execution backends. The
+# entry deliberately records backend-dependent isolation and leaves credential
+# mediation unspecified where the primary docs do not define a single model.
 # =============================================================================
 # AI Agent Sandboxes — structured dataset (evidence-carrying edition)
 #
@@ -89,9 +94,9 @@
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.6"
+  version: "0.2.7"
   generated: "2026-07-14"
-  updated: "2026-07-20"
+  updated: "2026-08-31"
   primary_thread:
     title: "Show HN: Clawk – Give coding agents a disposable Linux VM, not your laptop"
     url: "https://news.ycombinator.com/item?id=48892859"
@@ -309,6 +314,10 @@ sources:
   omnigent_docs_omnibox: {url: "https://omnigent.ai/docs/omnibox", title: "Omnigent docs: Omnibox"}
   omnigent_repo:        {url: "https://github.com/omnigent-ai/omnigent", title: "omnigent-ai/omnigent README & source (verified 2026-07-20)"}
   omnigent_github_api:  {url: "https://api.github.com/repos/omnigent-ai/omnigent", title: "omnigent-ai/omnigent GitHub API metadata (verified 2026-07-20)"}
+  sandbase_repo:        {url: "https://github.com/sandbaseai/sandbase-harness", title: "SandBase Harness README & source"}
+  sandbase_install_docs: {url: "https://github.com/sandbaseai/sandbase-harness/blob/main/docs/installation.md", title: "SandBase Harness installation documentation"}
+  sandbase_sandbox_docs: {url: "https://github.com/sandbaseai/sandbase-harness/blob/main/docs/sandbox-backends.md", title: "SandBase Harness sandbox backend documentation"}
+  sandbase_api_docs:    {url: "https://github.com/sandbaseai/sandbase-harness/blob/main/docs/api.md", title: "SandBase Harness API documentation"}
 
 # -----------------------------------------------------------------------------
 # UI hints. The decision funnel keys off documented fields only.
@@ -390,6 +399,51 @@ sandboxes:
     limitations:
       - {value: macOS-first; Linux path experimental.}
       - {value: Anything mounted or allowlisted is exposed to the agent.}
+    compliance: {value: none_stated}
+
+  - id: sandbase_harness
+    name: SandBase Harness
+    default_source: sandbase_repo
+    tagline: Local-first, self-hosted agent runtime with persistent sessions and selectable sandbox providers.
+    urls: {repo: "https://github.com/sandbaseai/sandbase-harness", docs: "https://github.com/sandbaseai/sandbase-harness/blob/main/docs/installation.md", sandbox: "https://github.com/sandbaseai/sandbase-harness/blob/main/docs/sandbox-backends.md"}
+    license: Apache-2.0
+    maturity: {value: early_active, src: sandbase_repo, basis: "The repository publishes v0.3.8 and is actively maintained; it remains pre-1.0."}
+    thread_status: {value: not_from_hn_thread, src: sandbase_repo, basis: Added from the project's public repository and documentation, independent of the primary HN thread.}
+    platforms: [macos, linux, windows_powershell, cli, api, sdk]
+    agents_supported: [generic_command_execution]
+    classification:
+      role: runtime
+      execution_locus: hybrid
+      isolation_boundary: {value: container, src: sandbase_sandbox_docs, basis: "The runtime exposes Local, Docker, Kubernetes, and self-hosted worker providers; Docker/Kubernetes are container-oriented backends, while the local provider is path-isolated and must not be read as a universal OS security boundary."}
+      state_model: {value: persistent, src: sandbase_repo, basis: Persistent sessions, resumable runtime state, and session artifacts are documented as part of the runtime model.}
+      network_policy: {value: configurable, src: sandbase_sandbox_docs, basis: "Network behavior is selected and enforced by the configured execution backend/provider rather than a single universal SandBase network boundary."}
+      credential_mediation: {value: unspecified, src: sandbase_repo, basis: "The project documents credential scoping/handling and approvals, but the exact mediation mechanism depends on the selected environment/provider."}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        src: sandbase_sandbox_docs
+        basis: "The documented surface centers on governed tool access, approvals, credential handling, audit/replay, and sandbox backends; the docs explicitly qualify isolation by deployment and do not claim universal microVM/kernel containment."
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: "Session governance, approvals, configurable providers, and audit/replay plausibly address accidental actions and some exfiltration scenarios, but the local path provider and shared-kernel/container deployments do not justify a hostile-code-escape assessment."
+      design_intent:
+        value: both
+        ev: editorial
+        basis: "Approvals and tool governance constrain actions, while selectable sandbox providers allow an operator-managed execution boundary for longer-running workflows."
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: Node.js runtime with local storage by default; Docker, Kubernetes, and self-hosted worker infrastructure are optional deployment paths.
+      src: sandbase_install_docs
+    convenience_notes:
+      - {value: "One session/tool-governance model spans local development and operator-managed execution providers."}
+    integrations: [mcp, approvals, audit_replay, docker, kubernetes, worker_queue, cli, api]
+    audience: [individual_developer, small_team, platform_builder]
+    limitations:
+      - {value: "Local path isolation is not a universal OS security boundary.", src: sandbase_sandbox_docs}
+      - {value: "Docker, Kubernetes, and self-hosted worker isolation properties depend on their deployment configuration and operator hardening.", src: sandbase_sandbox_docs}
+      - {value: "Not a standalone microVM engine; microVM/kernel isolation is not claimed.", src: sandbase_sandbox_docs}
     compliance: {value: none_stated}
 
   - id: agentjail
