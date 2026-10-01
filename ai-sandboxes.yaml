@@ -85,11 +85,17 @@
 # github_codespaces) rather than a boundary purpose-built around an agent's
 # threat model -- no default egress policy, no credential mediation, and
 # seccomp explicitly disabled for debugger compatibility.
+#
+# v0.2.7 change: finished the v0.2.3 unquoted-comma fix. 19 more inline
+# flow-mapping values (in flar, virtdev, exe_dev, agentcage, bitrise_rde,
+# github_codespaces, byre, nono, vm_substrates, and three taxonomy labels) were
+# still being split by YAML parsers into a truncated string plus a bogus
+# null-valued key. Quoted them; a full-file scan now finds no unexpected nulls.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.6"
+  version: "0.2.7"
   generated: "2026-07-14"
   updated: "2026-07-20"
   primary_thread:
@@ -126,7 +132,7 @@ taxonomy:
     - {id: remote_workspace, label: Remote workspace, description: Hosted dev environment usable as an agent sandbox.}
     - {id: orchestrator, label: Orchestrator, description: Launches or supervises agents; not itself the trust boundary.}
     - {id: template, label: Template / recipe, description: Reusable setup pattern built on other substrates.}
-    - {id: pattern, label: DIY pattern, description: An approach, not a product.}
+    - {id: pattern, label: DIY pattern, description: "An approach, not a product."}
 
   execution_locus:
     - {id: local, label: Local (user's machine)}
@@ -163,7 +169,7 @@ taxonomy:
   credential_mediation:
     - {id: ambient, label: Ambient — host env visible to agent}
     - {id: mounted, label: Mounted — secret present inside runtime as file/env}
-    - {id: forwarded, label: Forwarded — e.g. SSH agent socket, key stays off-guest}
+    - {id: forwarded, label: "Forwarded — e.g. SSH agent socket, key stays off-guest"}
     - {id: host_side_injection, label: Host-side injection — secret added only on egress}
     - {id: os_keyring, label: OS keyring — agent auth in system keychain}
     - {id: managed_integration, label: Managed integration — vendor service connector}
@@ -236,7 +242,7 @@ taxonomy:
     - {id: macos, label: macOS}
     - {id: linux, label: Linux}
     - {id: windows_wsl2, label: Windows (WSL2)}
-    - {id: windows_powershell, label: Windows (native, PowerShell)}
+    - {id: windows_powershell, label: "Windows (native, PowerShell)"}
     - {id: cloud, label: Cloud (hosted execution mode)}
     - {id: browser, label: Browser}
     - {id: vscode, label: VS Code}
@@ -486,7 +492,7 @@ sandboxes:
     tagline: Fast, light Bubblewrap-based agent restriction with minimal startup overhead.
     urls: {repo: "https://github.com/swelljoe/flar"}
     license: Apache-2.0
-    maturity: {value: very_early, basis: No published releases at fetch time, per its own README.}
+    maturity: {value: very_early, basis: "No published releases at fetch time, per its own README."}
     thread_status: {value: directly_linked, src: hn_thread}
     platforms: [linux]
     agents_supported: {value: [claude_code, antigravity, codex, copilot, reasonix, kimi_code], basis: "Kimi Code added via PR #3, merged 2026-07-17."}
@@ -585,7 +591,7 @@ sandboxes:
     classification:
       role: runtime
       execution_locus: local
-      isolation_boundary: {value: vm, basis: KVM/QEMU virtual machines, locked by default.}
+      isolation_boundary: {value: vm, basis: "KVM/QEMU virtual machines, locked by default."}
       state_model: {value: persistent, basis: Shared sealed base image with per-project qcow2 deltas.}
       network_policy: {value: configurable, basis: nftables egress zones via passt — none/wan/lan/full plus optional custom single-port holes; default zone is none (no network beyond SSH).}
       credential_mediation: unspecified
@@ -630,7 +636,7 @@ sandboxes:
     classification:
       role: runtime
       execution_locus: vendor_cloud
-      isolation_boundary: {value: vm, basis: Full hosted Linux VMs with root, apt/systemd, HTTPS proxy, and SSH access.}
+      isolation_boundary: {value: vm, basis: "Full hosted Linux VMs with root, apt/systemd, HTTPS proxy, and SSH access."}
       state_model: {value: persistent, basis: Persistent disks; disks backed up; stopped VMs keep their disk.}
       network_policy: {value: operator_managed, basis: VMs private by default; access via proxy/SSH; integrations govern reachability.}
       credential_mediation:
@@ -759,7 +765,7 @@ sandboxes:
     integrations: [cli, scaffolds, custom_inspectors, cage_audit_logs, config_driven_cages]
     audience: [security_minded_developer, operator]
     limitations:
-      - {value: Not audited; experimental, per its own README.}
+      - {value: "Not audited; experimental, per its own README."}
     compliance: {value: none_stated}
 
   - id: instavm_coderunner
@@ -892,7 +898,7 @@ sandboxes:
       value: Vendor hardware, including cloud macOS — rare in this space.
       basis: Product page.
     convenience_notes:
-      - {value: SSH, VNC, web terminal, VS Code plugin, MCP server, API.}
+      - {value: "SSH, VNC, web terminal, VS Code plugin, MCP server, API."}
     integrations: [cli, web_ui, mcp_server, api, vscode_plugin, ssh, vnc, web_terminal]
     audience: [team, mobile_team, enterprise]
     limitations:
@@ -914,7 +920,7 @@ sandboxes:
       role: remote_workspace
       execution_locus: vendor_cloud
       isolation_boundary: {value: layered, basis: Development container hosted on a VM; isolated virtual network per codespace.}
-      state_model: {value: persistent, basis: Saved changes persist across stops; 30-minute idle timeout default; inactive stopped codespaces delete after 30 days by default, configurable.}
+      state_model: {value: persistent, basis: "Saved changes persist across stops; 30-minute idle timeout default; inactive stopped codespaces delete after 30 days by default, configurable."}
       network_policy: {value: open, basis: Outbound internet allowed by default.}
       credential_mediation: {value: unspecified, basis: Standard GitHub secrets model; no agent-native mediation story documented.}
     risk:
@@ -932,7 +938,7 @@ sandboxes:
         basis: A general dev environment repurposed as a wall, with no agent gating layer.
     pricing:
       model: free_tier_plus_usage
-      notes: {value: Free allowance for individuals, then pay-as-you-go.}
+      notes: {value: "Free allowance for individuals, then pay-as-you-go."}
     footprint_notes:
       value: Vendor hardware; prebuilds shorten startup at extra cost.
       basis: Codespaces docs.
@@ -1093,7 +1099,7 @@ sandboxes:
     limitations:
       - {value: Network open by default unless the firewall skill is enabled.}
       - {value: Project mounted read-write.}
-      - {value: Explicitly not an escape barrier, per its own README.}
+      - {value: "Explicitly not an escape barrier, per its own README."}
       - {value: Debian-derived base images only.}
     compliance: {value: none_stated}
 
@@ -1208,7 +1214,7 @@ sandboxes:
     integrations: [cli, credential_proxy, oauth_phantom_tokens, capability_sets_json, os_keystore_integrations]
     audience: [individual_developer, security_minded_developer]
     limitations:
-      - {value: Pre-1.0; APIs still stabilizing, per its own docs.}
+      - {value: "Pre-1.0; APIs still stabilizing, per its own docs."}
       - {value: "OS-sandbox boundary (Landlock/seccomp/Seatbelt), not hypervisor-grade."}
       - {value: Windows support is WSL2-only with documented feature gaps.}
     compliance: {value: none_stated}
@@ -1630,7 +1636,7 @@ adjacent:
       - {name: Docker (no exposed ports), url: "https://www.docker.com/"}
       - {name: Apple containerization example, url: "https://github.com/apple/containerization/tree/main/examples"}
       - {name: devcontainers, url: "https://containers.dev/"}
-      - {name: hardening primitives (AppArmor, bwrap, libseccomp, gVisor, Firecracker), url: null}
+      - {name: "hardening primitives (AppArmor, bwrap, libseccomp, gVisor, Firecracker)", url: null}
       - {name: FreeBSD jails, url: "https://docs.freebsd.org/en/books/handbook/jails/"}
   - id: wasm_substrates
     name: WASM runtimes as alternative substrate
