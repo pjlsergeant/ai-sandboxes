@@ -2,7 +2,8 @@
 
 A structured, evidence-carrying dataset of sandboxes and adjacent approaches
 for running AI coding agents (Claude Code, Codex, etc.) with some form of
-isolation, network control, or credential mediation.
+isolation, network control, or credential mediation. It powers
+[pleasedonotescape.com](https://pleasedonotescape.com).
 
 Started from the [Show HN: Clawk](https://news.ycombinator.com/item?id=48892859)
 thread and the official docs it cited; entries added since then are marked
@@ -31,11 +32,11 @@ Add entries following the existing shape, keep every claim's evidence
 traceable to a source in the `sources` registry, and bump `meta.version`
 with a short changelog note at the top of the file.
 
-## Roadmap
+## The site
 
-Plan is to stick a simple website on top of this soon — filterable by the
-taxonomy facets above, evidence links inline, "official claims only" toggle.
-For now it's just the YAML.
+[pleasedonotescape.com](https://pleasedonotescape.com) is a static page (in
+[`docs/`](docs/)) that loads the live YAML from `main` and renders it as
+filterable cards, flagging any claim that isn't backed by official sources.
 
 ## Shameless plug
 
