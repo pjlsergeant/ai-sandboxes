@@ -94,11 +94,17 @@
 #
 # v0.2.8 change: added discobox (2026-10-01), sourced from an inclusion
 # request rather than the HN thread — see its thread_status field.
+#
+# v0.2.9 change: added docker_sandboxes (Docker Sandboxes / sbx), contributed
+# by an outside contributor (PR #2, 2026-08-28) and corrected against
+# docs.docker.com on 2026-10-01: maturity, cloud mode (hybrid locus), network
+# presets, pricing note, Devin in the agent list, license, and the shared
+# skills default.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.8"
+  version: "0.2.9"
   generated: "2026-07-14"
   updated: "2026-10-01"
   primary_thread:
@@ -324,6 +330,16 @@ sources:
   discobox_vz:          {url: "https://github.com/discobox-ai/discobox/blob/4a7f956d65f44080c4c3cc6575ce3aa72001bed0/server/providers/vz/provider.go", title: "Discobox source: macOS vz pool VM, /Users exported read-only"}
   discobox_installer:   {url: "https://github.com/discobox-ai/discobox/blob/4a7f956d65f44080c4c3cc6575ce3aa72001bed0/installer/install.sh", title: "Discobox install script (refuses Intel Macs)"}
   inclusion_request_2026_10_01: {url: null, title: "Inclusion request for Discobox sent to the dataset maintainer, 2026-10-01 (not part of the HN thread)"}
+  docker_sandboxes_docs:       {url: "https://docs.docker.com/ai/sandboxes/", title: "Docker Sandboxes documentation"}
+  docker_sandboxes_security:   {url: "https://docs.docker.com/ai/sandboxes/security/", title: "Docker Sandboxes security model"}
+  docker_sandboxes_architecture: {url: "https://docs.docker.com/ai/sandboxes/architecture/", title: "Docker Sandboxes architecture"}
+  docker_sandboxes_agents:     {url: "https://docs.docker.com/ai/sandboxes/agents/", title: "Docker Sandboxes supported agents"}
+  docker_sandboxes_install:    {url: "https://docs.docker.com/ai/sandboxes/install/", title: "Docker Sandboxes installation guide"}
+  docker_sandboxes_defaults:   {url: "https://docs.docker.com/ai/sandboxes/security/defaults", title: "Docker Sandboxes default security posture"}
+  docker_sandboxes_release_notes: {url: "https://docs.docker.com/ai/sandboxes/release-notes/", title: "Docker Sandboxes release notes"}
+  docker_sandboxes_local_policy: {url: "https://docs.docker.com/ai/sandboxes/governance/access-controls/local/", title: "Docker Sandboxes local network policy presets"}
+  docker_sandboxes_faq:        {url: "https://docs.docker.com/ai/sandboxes/faq/", title: "Docker Sandboxes FAQ"}
+  contributor_submission_2026_08_28: {url: "https://github.com/pjlsergeant/ai-sandboxes/pull/2", title: "Contributor-submitted Docker Sandboxes entry, PR #2, 2026-08-28 (not part of the HN thread)"}
 
 # -----------------------------------------------------------------------------
 # UI hints. The decision funnel keys off documented fields only.
@@ -1528,7 +1544,58 @@ sandboxes:
       - {value: No Intel Mac build., src: discobox_installer}
     compliance: {value: none_stated}
 
-
+  - id: docker_sandboxes
+    name: Docker Sandboxes (sbx)
+    default_source: docker_sandboxes_docs
+    tagline: Isolated microVM sandboxes with a private Docker daemon, host-side credential injection, and preset-based egress policy.
+    urls: {official: "https://docs.docker.com/ai/sandboxes/", docs: "https://docs.docker.com/ai/sandboxes/", releases: "https://github.com/docker/sbx-releases"}
+    license: proprietary
+    maturity: {value: pre_1_0_active, src: docker_sandboxes_release_notes, basis: "Stable pre-1.0 releases (v0.45.1 in the docs release notes, 2026-09-22); the local product carries no beta label, but cloud sandboxes and the Sandboxes API are marked experimental."}
+    thread_status: {value: not_from_hn_thread, src: contributor_submission_2026_08_28, basis: "Added from an outside contributor's submission (PR #2), independent of the source HN thread."}
+    platforms: {value: [macos, linux, windows_powershell, cloud], src: docker_sandboxes_install, basis: "Native installs: macOS 14+ on Apple Silicon; Windows 11 x64 with Windows Hypervisor Platform (no WSL needed); Ubuntu 24.04+ with KVM (derivatives unsupported). Cloud sandboxes via sbx --cloud."}
+    agents_supported:
+      value: [claude_code, codex, copilot, cursor, gemini_cli, opencode]
+      src: docker_sandboxes_agents
+      basis: "Docs list Claude Code, Codex, Copilot, Cursor, Devin, Docker Agent, Droid, Gemini, Kiro, OpenCode, and Shell. Devin, Docker Agent, Droid, Kiro, and Shell have no ids in this dataset's closed agents_supported taxonomy; recorded here rather than expanding the taxonomy per-agent."
+    classification:
+      role: runtime
+      execution_locus: {value: hybrid, basis: "Local microVMs by default; sbx --cloud runs sandboxes on Docker-managed infrastructure (experimental)."}
+      isolation_boundary: {value: microvm, src: docker_sandboxes_architecture, basis: "Each sandbox is a separate hypervisor-backed microVM with its own kernel, Docker Engine, and filesystem. Hypervisor isolation is the primary trust boundary."}
+      state_model: {value: configurable, src: docker_sandboxes_architecture, basis: "Local sandboxes persist until explicitly removed (sbx rm); VM state, Docker images, installed packages, and agent history carry over between runs. Cloud sandboxes expire after one hour by default."}
+      network_policy: {value: configurable, src: docker_sandboxes_local_policy, basis: "Outbound TCP goes through a host-side policy proxy. On first run the CLI asks for a preset: Open (allow all), Balanced (default deny plus a baseline allowlist with broad wildcards; pre-selected), or Locked Down. UDP and ICMP are blocked by default."}
+      credential_mediation: {value: host_side_injection, src: docker_sandboxes_security, basis: "Host-side proxy injects authentication headers into outbound HTTP requests; raw credential values never enter the VM. Credentials provided via sbx secret or environment variables."}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        src: docker_sandboxes_security
+        basis: "Security model explicitly covers hypervisor isolation (hostile escape), a policy-enforcing network proxy (exfiltration), and credential injection (exfiltration). Workspace isolation is opt-in via --clone mode."
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: "MicroVM boundary is hypervisor-grade (credible for hostile escape). Credential injection plus a default-deny preset addresses exfiltration, though choosing the Open preset weakens t2. t1 covers the host outside the workspace: the current directory is mounted read-write by default, with --clone opt-in."
+      design_intent:
+        value: liberate
+        ev: editorial
+        basis: "Built to let agents run autonomously with full Docker access inside a strong boundary, not to gate every tool call."
+    pricing:
+      model: free_tier_plus_usage
+      notes: {value: "sbx CLI and local sandbox compute are free, including for commercial use. Cloud sandboxes bill pay-as-you-go compute; organization governance (central network/filesystem/MCP policies) is a separate paid subscription.", src: docker_sandboxes_faq}
+    footprint_notes:
+      value: "One microVM per sandbox with its own Docker daemon; disk grows with images, containers, and packages. Virtiofs caching enabled by default on all OSes."
+      basis: "Documented architecture; each sandbox maintains isolated Docker daemon state and image cache."
+    convenience_notes:
+      - {value: "sbx run <agent> one-command launch; SSH/VS Code integration; MCP gateway; shared agent skills store; reusable templates (kits); clone mode for workspace isolation."}
+    integrations: [cli, ssh, vscode, mcp_gateway, agent_skills, kits, upstream_proxy, governance]
+    audience: [individual_developer, team, enterprise]
+    limitations:
+      - {value: "Direct workspace mount is read-write by default — agent edits host files live; clone mode (--clone) is opt-in.", src: docker_sandboxes_security}
+      - {value: "Default allowed domains include broad wildcards (e.g., *.googleapis.com); operator must prune with sbx policy.", src: docker_sandboxes_defaults}
+      - {value: "Shared agent skills store (experimental) mounts read-only by default; a sandbox given --skills=readwrite can change skills other sandboxes load. Opt out with --skills=off.", src: docker_sandboxes_defaults}
+      - {value: "Local stdio MCP servers run on host, not in sandbox; if they spawn containers, those use host Docker/permissions.", src: docker_sandboxes_security}
+      - {value: "macOS requires Apple Silicon (M1+); Intel Macs unsupported. Linux requires KVM + nested virt if in VM. Windows requires Hypervisor Platform.", src: docker_sandboxes_install}
+      - {value: "Sign-in to Docker required (OAuth).", src: docker_sandboxes_install}
+    compliance: {value: none_stated_in_fetched_docs}
 
 # -----------------------------------------------------------------------------
 # Adjacent tools & approaches. Same claim conventions; lighter schema.
