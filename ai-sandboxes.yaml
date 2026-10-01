@@ -91,13 +91,16 @@
 # github_codespaces, byre, nono, vm_substrates, and three taxonomy labels) were
 # still being split by YAML parsers into a truncated string plus a bogus
 # null-valued key. Quoted them; a full-file scan now finds no unexpected nulls.
+#
+# v0.2.8 change: added discobox (2026-10-01), sourced from an inclusion
+# request rather than the HN thread — see its thread_status field.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.7"
+  version: "0.2.8"
   generated: "2026-07-14"
-  updated: "2026-07-20"
+  updated: "2026-10-01"
   primary_thread:
     title: "Show HN: Clawk – Give coding agents a disposable Linux VM, not your laptop"
     url: "https://news.ycombinator.com/item?id=48892859"
@@ -315,6 +318,12 @@ sources:
   omnigent_docs_omnibox: {url: "https://omnigent.ai/docs/omnibox", title: "Omnigent docs: Omnibox"}
   omnigent_repo:        {url: "https://github.com/omnigent-ai/omnigent", title: "omnigent-ai/omnigent README & source (verified 2026-07-20)"}
   omnigent_github_api:  {url: "https://api.github.com/repos/omnigent-ai/omnigent", title: "omnigent-ai/omnigent GitHub API metadata (verified 2026-07-20)"}
+  discobox_repo:        {url: "https://github.com/discobox-ai/discobox", title: "Discobox README (verified at commit 4a7f956, 2026-10-01)"}
+  discobox_adr_userns:  {url: "https://github.com/discobox-ai/discobox/blob/4a7f956d65f44080c4c3cc6575ce3aa72001bed0/docs/adr/0004-user-namespaces-are-the-default-isolation.md", title: "Discobox ADR 0004: user namespaces as default isolation (Status: Proposed)"}
+  discobox_proxy:       {url: "https://github.com/discobox-ai/discobox/blob/4a7f956d65f44080c4c3cc6575ce3aa72001bed0/proxy/DESIGN.md", title: "Discobox proxy design (destination policy, MITM, sentinel swap)"}
+  discobox_vz:          {url: "https://github.com/discobox-ai/discobox/blob/4a7f956d65f44080c4c3cc6575ce3aa72001bed0/server/providers/vz/provider.go", title: "Discobox source: macOS vz pool VM, /Users exported read-only"}
+  discobox_installer:   {url: "https://github.com/discobox-ai/discobox/blob/4a7f956d65f44080c4c3cc6575ce3aa72001bed0/installer/install.sh", title: "Discobox install script (refuses Intel Macs)"}
+  inclusion_request_2026_10_01: {url: null, title: "Inclusion request for Discobox sent to the dataset maintainer, 2026-10-01 (not part of the HN thread)"}
 
 # -----------------------------------------------------------------------------
 # UI hints. The decision funnel keys off documented fields only.
@@ -1472,6 +1481,54 @@ sandboxes:
       - {value: "The docs page names only Claude Code, Codex, and \"custom agents\" explicitly; the fuller list recorded here (ten native-terminal integrations plus one SDK-based harness, Copilot) is inferred from the repo's own integration modules and harness registry, not itself a documented supported-agents list.", ev: editorial, basis: "Cross-checked omnigent.ai/docs/omnibox's stated agent list against the repo's *_native*.py modules and harness_plugins.py's registered harnesses -- the docs page undersells what the source actually ships."}
       - {value: "A Databricks-hosted remote sandbox launcher ('Lakebox') is referenced in the repo's own CLI code as internal-only, so it isn't available to external users of the OSS repo.", src: omnigent_repo}
     compliance: {value: none_stated}
+
+  - id: discobox
+    name: Discobox
+    default_source: discobox_repo
+    tagline: Disposable per-task boxes with their own git clone, services, desktop, and browser.
+    urls: {official: "https://discobox.ai/", repo: "https://github.com/discobox-ai/discobox"}
+    license: Apache-2.0
+    maturity: {value: pre_1_0_active, basis: v0.12.0 as of October 2026; README says it is under active development.}
+    thread_status:
+      value: not_from_hn_thread
+      src: inclusion_request_2026_10_01
+      basis: Added 2026-10-01 from an inclusion request sent to the dataset maintainer.
+    platforms:
+      value: [macos, linux, windows_wsl2]
+      basis: README lists macOS, Linux, and Windows; macOS is Apple Silicon only, and the Windows client (installed via PowerShell) runs its pools on WSL Containers.
+    agents_supported: [claude_code, codex, opencode, agent_agnostic]
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: container, basis: "Privileged container per box; on macOS and Windows these run inside one VM per pool, on Linux directly on host Docker (libkrun microVM opt-in)."}
+      state_model: {value: copy_apply, basis: Each box clones the repo; `discobox apply` cherry-picks its commits back onto your branch.}
+      network_policy: {value: open, src: discobox_proxy, basis: "Egress passes through an auditing proxy; it has an allowlist, but no product setting enables it yet."}
+      credential_mediation: {value: host_side_injection, basis: Agent sees placeholder sentinels; the proxy swaps in the real credential only for its bound domain.}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration]
+        basis: README centers on VM/container isolation, an auditing egress proxy, and credentials kept outside the box.
+      assessed_tiers:
+        value: [t1_accidents]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: Credentials stay out of the box, but open egress means t2 is not assessed (as with fly_sprites); privileged containers and no VM on Linux rule out t3.
+      design_intent: {value: liberate, basis: "Passwordless sudo, nested Docker, and no approval prompts inside the box."}
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: One VM per pool on macOS/Windows; one container per box with its own services, Docker, and desktop.
+      basis: Documented deployment unit per platform.
+    convenience_notes:
+      - {value: "Parallel boxes against one repo without touching your checkout; connect via terminal, SSH, VS Code/Zed, or noVNC desktop."}
+    integrations: [cli, openapi_api, homebrew, ssh, novnc_desktop, credential_proxy, llm_judge, git_cherry_pick_apply]
+    audience: [individual_developer, small_team]
+    limitations:
+      - {value: Linux default has no VM; rootless/user-namespace isolation is still a proposed ADR., src: discobox_adr_userns}
+      - {value: Boxes in a pool share one VM (macOS/Windows) or the host Docker daemon (Linux); macOS and Linux pools get read-only access to home directories for cloning., src: discobox_vz}
+      - {value: No Intel Mac build., src: discobox_installer}
+    compliance: {value: none_stated}
+
+
 
 # -----------------------------------------------------------------------------
 # Adjacent tools & approaches. Same claim conventions; lighter schema.
