@@ -100,13 +100,20 @@
 # docs.docker.com on 2026-10-01: maturity, cloud mode (hybrid locus), network
 # presets, pricing note, Devin in the agent list, license, and the shared
 # skills default.
+#
+# v0.2.10 change: added devvm (2026-11-10), sourced from the devvm landing page
+# and docs (devvm.dev, all pages last updated 2026-11-06) plus GitHub API
+# metadata for devvmhq/devvm (MIT, v0.1.0 released 2026-11-06). Every claim was
+# checked against the full text of the install, first-VM, Lima, known-limits,
+# network-tiers, coding-agents, security-model, attack-vectors, and .git
+# protection pages.
 # =============================================================================
 
 meta:
   title: AI Agent Sandboxes & Adjacent Approaches
-  version: "0.2.9"
+  version: "0.2.10"
   generated: "2026-07-14"
-  updated: "2026-10-01"
+  updated: "2026-11-10"
   primary_thread:
     title: "Show HN: Clawk – Give coding agents a disposable Linux VM, not your laptop"
     url: "https://news.ycombinator.com/item?id=48892859"
@@ -340,6 +347,19 @@ sources:
   docker_sandboxes_local_policy: {url: "https://docs.docker.com/ai/sandboxes/governance/access-controls/local/", title: "Docker Sandboxes local network policy presets"}
   docker_sandboxes_faq:        {url: "https://docs.docker.com/ai/sandboxes/faq/", title: "Docker Sandboxes FAQ"}
   contributor_submission_2026_08_28: {url: "https://github.com/pjlsergeant/ai-sandboxes/pull/2", title: "Contributor-submitted Docker Sandboxes entry, PR #2, 2026-08-28 (not part of the HN thread)"}
+  devvm_docs:           {url: "https://devvm.dev/docs/", title: "devvm documentation"}
+  devvm_site:           {url: "https://devvm.dev/", title: "devvm landing page & FAQ (MIT license, free)"}
+  devvm_repo:           {url: "https://github.com/devvmhq/devvm", title: "devvm repo (GitHub API checked 2026-11-10: MIT, v0.1.0 released 2026-11-06)"}
+  devvm_install:        {url: "https://devvm.dev/docs/getting-started/install/", title: "devvm docs: Installing (requirements, tested hosts)"}
+  devvm_first_vm:       {url: "https://devvm.dev/docs/getting-started/first-vm/", title: "devvm docs: Your first VM (default size and tier)"}
+  devvm_lima:           {url: "https://devvm.dev/docs/backends/lima/", title: "devvm docs: Lima backend (vz on macOS, QEMU on Linux)"}
+  devvm_limits:         {url: "https://devvm.dev/docs/using/limits/", title: "devvm docs: Known limits"}
+  devvm_network:        {url: "https://devvm.dev/docs/safety/network/", title: "devvm docs: Network tiers"}
+  devvm_coding_agents:  {url: "https://devvm.dev/docs/using/coding-agents/", title: "devvm docs: Coding agents (agents, logins, agent store)"}
+  devvm_security:       {url: "https://devvm.dev/docs/internals/security/", title: "devvm docs: Security model"}
+  devvm_attack_vectors: {url: "https://devvm.dev/docs/safety/attack-vectors/", title: "devvm docs: Attack vectors (what is blocked, narrowed, or left to you)"}
+  devvm_git_protection: {url: "https://devvm.dev/docs/safety/git-protection/", title: "devvm docs: .git protection"}
+  user_request_2026_11_10: {url: null, title: "devvm inclusion request, 2026-11-10 (not part of the HN thread)"}
 
 # -----------------------------------------------------------------------------
 # UI hints. The decision funnel keys off documented fields only.
@@ -1596,6 +1616,66 @@ sandboxes:
       - {value: "macOS requires Apple Silicon (M1+); Intel Macs unsupported. Linux requires KVM + nested virt if in VM. Windows requires Hypervisor Platform.", src: docker_sandboxes_install}
       - {value: "Sign-in to Docker required (OAuth).", src: docker_sandboxes_install}
     compliance: {value: none_stated_in_fetched_docs}
+
+  - id: devvm
+    name: devvm
+    default_source: devvm_docs
+    tagline: One full VM per project with the project's toolchain and a coding agent ready; a per-VM host proxy confines the network and holds the secrets.
+    urls: {official: "https://devvm.dev/", docs: "https://devvm.dev/docs/", repo: "https://github.com/devvmhq/devvm"}
+    license: {value: MIT, src: devvm_repo}
+    maturity: {value: pre_1_0_active, src: devvm_repo, basis: "v0.1.0 released 2026-11-06 and the repo was pushed to the day before this entry; the docs say Intel Macs are untested."}
+    thread_status:
+      value: not_from_hn_thread
+      src: user_request_2026_11_10
+      basis: Added 2026-11-10 at the maintainer's request from the devvm landing page and docs.
+    platforms:
+      value: [macos, linux]
+      src: devvm_install
+      basis: "macOS 13+ (Apple silicon tested; an Intel Mac release exists but is untested) and Linux on arm64/x86_64 (needs QEMU and /dev/kvm). No docs page mentions Windows."
+    agents_supported:
+      value: [claude_code, codex, opencode]
+      src: devvm_coding_agents
+      basis: "Docs list exactly claude, codex and opencode; devvm installs them in the VM and tracks each one's newest release."
+    classification:
+      role: runtime
+      execution_locus: local
+      isolation_boundary: {value: vm, src: devvm_lima, basis: "\"Each project gets a full VM with a kernel of its own\"; Lima (the only documented backend) runs it on Apple's Virtualization framework (vz) on macOS and QEMU/KVM on Linux. On macOS the Lima process also runs under a macOS sandbox."}
+      state_model: {value: configurable, src: devvm_attack_vectors, basis: "A VM persists until `devvm rm` (devvm never deletes one on its own); `--clone` instead gives the VM its own repo clone whose work reaches the host only when fetched. `devvm rm` exports agent history first."}
+      network_policy: {value: configurable, src: devvm_network, basis: "Four tiers: open (unconfined; reaches localhost and LAN) / internet / allowlist (default for new VMs) / none. A VM on any tier but open reaches only its per-VM host proxy: direct connections fail and DNS resolves in the proxy. Deny rules beat allow rules."}
+      credential_mediation: {value: host_side_injection, src: devvm_network, basis: "On every tier the VM holds a placeholder per secret or agent login and its proxy inserts the real value only into requests for that secret's own hosts. SSH agent forwarding is off by default. Exceptions: opencode API keys for providers other than Anthropic/OpenAI/OpenRouter go in unchanged, and secrets in the project folder or the mounted agent folders are visible to the VM."}
+    risk:
+      stated_scope:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        src: devvm_security
+        basis: "Treats everything in a VM as untrusted (including an agent with root): VM boundary, confined network tiers, secret placeholders, and a locked .git on macOS. Escape via bugs in Lima, Apple's Virtualization framework or QEMU is explicitly listed as not defended against."
+      assessed_tiers:
+        value: [t1_accidents, t2_exfiltration, t3_hostile_escape]
+        ev: editorial
+        derived_from: [classification.isolation_boundary, classification.network_policy, classification.credential_mediation]
+        basis: "Own-kernel VM plus a default-deny proxy plus placeholder secrets plausibly cover all three tiers on default settings. Weakened by: the project folder being read-write (anything the VM writes there that a host program runs), the open and internet tiers, allowed hosts such as github.com that accept pushes, and a real GitHub token the proxy still injects. No independent audit exists."
+      design_intent: {value: liberate, ev: editorial, basis: "Docs say an agent run with permission checks off \"reaches only the VM\"; the VM has passwordless sudo and no per-call approvals. The tiers tune the wall rather than gate individual actions."}
+    pricing: {model: free_oss}
+    footprint_notes:
+      value: "One VM per project folder; default 4 CPUs, 8 GiB memory, 100 GiB disk (the first VM needs 8 GiB of free host disk). Toolchains and agents are built once and mounted read-only into every VM."
+      src: devvm_first_vm
+      basis: Documented defaults and the shared-tools design.
+    convenience_notes:
+      - {value: "`devvm` in a project folder creates the VM and opens its shell; node/python/rust/go are detected from files in the folder with version pins honoured; agent settings and logins come from devvm's own store (`devvm agent login claude`, `devvm agent import`) rather than the host's agent files; `devvm code` opens VS Code over Remote-SSH; docker, nix and desktop layers are built in.", src: devvm_coding_agents}
+      - {value: "On macOS .git hooks and config are locked by default so `git config`, `git remote add` and hook installers fail until you `devvm stop` and `devvm git-protect off`.", src: devvm_git_protection}
+    integrations: [cli, homebrew, lima, ssh, vscode, devcontainer, nix_layer, docker_layer, custom_layers, agent_store, links_between_vms]
+    audience: [individual_developer, small_team]
+    limitations:
+      - {value: "Lima is the only documented backend; no docs page mentions Windows.", src: devvm_lima}
+      - {value: "Intel Macs have a release but nobody has tested it; VMs and network confinement may fail there.", src: devvm_limits}
+      - {value: "The project folder is mounted read-write by default. Anything the VM writes there that a host program runs or reads as config (project hooks, .claude/settings.json, .vscode/tasks.json, .envrc, symlinks) is open; --clone avoids it.", src: devvm_attack_vectors}
+      - {value: ".git protection works only on macOS and is on by default. Linux hosts have none (use --clone); on macOS a replaced .git and submodules with their own config are only reported or narrowed (git-protect strict).", src: devvm_git_protection}
+      - {value: "On Linux hosts root in the VM can set set-id bits on project files that take effect on the host; mounts are 9p so file watchers miss changes, and secrets live in files under ~/.local/share/devvm/secrets/ instead of the Keychain.", src: devvm_limits}
+      - {value: "The proxy still injects the real GitHub token for GitHub hosts so a worm in the VM can do whatever the token's scope allows; some credential-minting calls are refused but not all (GraphQL and OAuth grants are not).", src: devvm_attack_vectors}
+      - {value: "The open tier reaches localhost and the LAN. The internet tier and allowed hosts can carry data out. The proxy checks SNI but not the inner Host header (domain fronting).", src: devvm_attack_vectors}
+      - {value: "The agent store keeps one login per agent so any VM with that agent can replace it for all VMs; `devvm agent save` copies a VM's agent settings (hooks, MCP servers, plugins) to every VM after a diff and a yes.", src: devvm_coding_agents}
+      - {value: "Links between VMs and groups join the trust of the VMs involved; forwarded ports (TCP from 1024 up by default) reach the host's localhost.", src: devvm_attack_vectors}
+      - {value: "Escape through bugs in Lima, Apple's Virtualization framework or QEMU is explicitly not defended against.", src: devvm_attack_vectors}
+    compliance: {value: none_stated}
 
 # -----------------------------------------------------------------------------
 # Adjacent tools & approaches. Same claim conventions; lighter schema.
